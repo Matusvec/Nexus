@@ -1,0 +1,28 @@
+# Core API framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# ChromaDB for vector storage
+chromadb==0.4.22
+
+# Google Gemini AI
+google-genai==0.3.0
+
+# PDF and document parsing
+pypdf==3.17.4
+python-docx==1.1.0
+
+# Text processing and chunking
+nltk==3.8.1
+sentence-transformers==2.3.1
+
+# RAPTOR clustering dependencies
+scikit-learn==1.4.0
+umap-learn==0.5.5
+hdbscan==0.8.33
+numpy==1.26.3
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
