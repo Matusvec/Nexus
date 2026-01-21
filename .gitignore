@@ -16,5 +16,44 @@ bin-release/
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
 # should NOT be excluded as they contain compiler settings and other important
 # information for Eclipse / Flash Builder.
-.env
 
+# ===== SECRETS & API KEYS - NEVER COMMIT =====
+.env
+.env.*
+.env.local
+.env.*.local
+*.env
+secrets.json
+*secret*
+*api_key*
+*.pem
+*.key
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# ===== Database =====
+chroma_db/
+*.db
+*.sqlite3
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
