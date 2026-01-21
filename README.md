@@ -342,169 +342,82 @@ This is **Iron Man's JARVIS workshop** - AI team members working alongside you i
 
 ## Development Strategy
 
-### Validation-First Philosophy
+### Pragmatic Approach: Build in Public, Ship Fast
 
-**Core Principle:** Build the minimum to prove each hypothesis. Don't assume users want features. Make them demand it.
+**Core Philosophy:** Ship every 3 months, validate with real users, iterate or pivot. Don't build in isolation for 2 years.
 
-**Kill everything except the core value proposition, then add back only what's proven necessary.**
+### Milestone 1: Prove RAG Works (3 months)
+**Goal:** Demonstrate RAPTOR answers complex questions better than basic RAG
 
----
+**Ship:**
+- Python CLI tool (no UI yet)
+- Basic RAPTOR implementation (2 layers, manual rebuild)
+- Single document group
+- Command-line query interface
+- Blog posts showing before/after examples vs standard RAG
 
-## Phase 0: Kill the UI. Kill AR. Kill Personas.
-
-**Build only this:**
-- CLI or minimal web UI (bare bones)
-- Upload documents
-- RAPTOR-style hierarchical retrieval
-- One neutral agent (no personality)
-
-**One killer demo:**
-> "Ask a question that normal RAG gets wrong — Nexus gets right."
-
-**Success Metric:**
-- Can you dominate side-by-side comparisons with standard RAG?
-- If NO → the rest is irrelevant, fix this first
-- If YES → proceed to Phase 1
-
-**Timeline:** 2-3 months
-
-**Why this matters:** RAPTOR is your technical moat. Prove it works before adding anything else.
+**Validation Criteria:**
+- You use it daily for your own research
+- Post demo on Reddit/HackerNews
+- 100+ GitHub stars or waitlist signups
+- **Decision point:** If validation fails, pivot or stop
 
 ---
 
-## Phase 1: Add One Agent + Human-in-Loop
+### Milestone 2: Add Personality (2 months)
+**Goal:** Prove personality + tools improves UX over generic chatbot
 
-**Only after RAPTOR clearly outperforms alternatives:**
+**Ship:**
+- Same CLI with Max persona
+- Tool calling system (query_documents, get_stats, etc.)
+- Human-in-loop task creation (saves to JSON file)
+- Demo video showing Max requesting help with instructions
 
-**Add:**
-- One specialist agent (neutral, professional tone)
-- Human task request system
-- Tool calling (query_group, request_human_help)
-
-**Goal:** Prove the agent stops instead of hallucinating
-
-**Test:**
-- Give agent questions it cannot answer from documents
-- Does it say "I need you to..." or does it make things up?
-- This is where your real differentiation appears
-
-**Success Metric:**
-- Agent reliably requests human help when needed
-- Users say: "This doesn't hallucinate like ChatGPT"
-- 10 people willing to pay $10 for early access
-
-**Timeline:** 2 months
-
-**Decision Point:** If agents don't add value over plain RAPTOR search, don't build personas/multi-agent.
+**Validation Criteria:**
+- Show to 10 maker/engineer friends
+- At least 5 say "I want to use this"
+- Get 5 people to pay $10 for early access
+- **Decision point:** If no interest, reconsider market
 
 ---
 
-## Phase 2: Canvas UI (Only If Users Ask)
+### Milestone 3: Basic UI (3 months)
+**Goal:** Make usable for non-technical users
 
-**Do not assume spatial organization is good. Prove it.**
+**Ship:**
+- Next.js web app (simple, functional)
+- File upload interface
+- Basic canvas (boxes for groups, lines for connections - no fancy animations yet)
+- Chat interface with Max
+- Local-only deployment (no auth, single user)
 
-**Wait for users to say:**
-- "I lose track of document groups"
-- "I want to see relationships between topics"
-- "Can I organize this visually?"
-
-**Then and only then:**
-- Build basic canvas (React Flow)
-- Boxes for groups, lines for connections
-- No fancy animations, no AR teases, just functional
-
-**Success Metric:**
-- Users naturally organize documents spatially
-- They return to the canvas view repeatedly
-- Retention improves after canvas is added
-
-**Timeline:** 2-3 months
-
-**If users don't ask:** Stay with list/folder view. Simpler is better.
+**Validation Criteria:**
+- Recruit 50 beta users
+- Track retention: Are they returning weekly?
+- 20%+ weekly retention = product-market fit signal
+- **Decision point:** If retention <10%, major UX pivot needed
 
 ---
 
-## Phase 3: Personas (Lightweight)
+### Milestone 4: Multi-Agent (2 months)
+**Goal:** Prove agent collaboration adds value
 
-**Only after users trust correctness.**
+**Ship:**
+- Add Elena (physics specialist) as 2nd agent
+- Cross-group query capability
+- Agent handoff demo (Max consults Elena)
+- Improved canvas UI based on feedback
 
-**Personality should feel like:**
-- "Oh nice, this makes it easier to think."
-
-**Not:**
-- "This is distracting but cute."
-
-**Implementation:**
-- Start with tone variations (formal vs casual)
-- Add names only if users request them
-- "Max the mechanic" comes after people want specialist contexts
-
-**Test:**
-- A/B test: neutral vs personality
-- Does personality improve or hurt retention?
-- Do users engage more or complain?
-
-**Success Metric:**
-- Personality doesn't reduce trust
-- Users give agents nicknames organically
-- "Can I talk to the physics expert?" appears in feedback
-
-**Timeline:** 1-2 months
-
-**If personality reduces trust:** Stay neutral. Accuracy > entertainment.
+**Validation Criteria:**
+- Beta users request more agents
+- At least one user completes multi-step project using both agents
+- Users say collaboration feature is valuable
+- **Decision point:** Validates multi-agent architecture
 
 ---
 
-## Phase 4: AR (Much Later, Maybe Never)
-
-**AR is a distribution amplifier, not a foundation.**
-
-**Build AR when:**
-- You have 1000+ paying users
-- Users are begging for spatial interaction
-- You have funding to hire 3D/AR specialist
-- 2D product is excellent and profitable
-
-**AR serves two purposes:**
-1. **Marketing/PR:** TechCrunch headlines, demo videos, VC interest
-2. **Power users:** Small subset who think spatially
-
-**Reality Check:**
-- <5% of users will have Quest headsets
-- 2D product must work standalone
-- AR development is 6+ months
-- Don't build AR to "differentiate" - build it when users demand it
-
-**If you ever reach this phase, you'll know — users will be requesting it constantly.**
-
----
-
-## Target Market (Refined)
-
-**Your real customers are NOT:**
-- Students (low budget, low commitment)
-- Casual ChatGPT users (don't need local)
-- Productivity tourists (churn after 1 month)
-
-**Your real customers ARE:**
-- Engineers with 100+ datasheets
-- PhD students drowning in papers
-- Startup founders doing market research
-- Research-heavy professionals (legal, medical, policy)
-- Serious makers with deep project documentation
-
-**This is a small but high-value market:**
-- Willing to pay $30-50/month
-- Need privacy (can't use ChatGPT for proprietary data)
-- Value accuracy over speed
-- Use daily, not occasionally
-
-**Market Size:**
-- Addressable: ~500K potential users globally
-- Realistic: 5-10K paying users within 2 years
-- Revenue potential: $1.8-5.4M ARR (at $30/mo)
-
-**This is enough to build a profitable, sustainable business.**
+### Milestone 5: AR Prototype (4 months)
+**Goal:** Prove spatial presence adds value beyond demos
 Practical Considerations
 
 ### Scope Realities
@@ -659,13 +572,13 @@ Practical Considerations
 ## FAQ
 
 **Q: When will this be available?**  
-A: Phase 0 (CLI RAPTOR demo) in ~2-3 months. Each phase after depends on validation results. AR is Phase 4+ (maybe never if users don't request it).
+A: Milestone 1 (CLI demo) in ~3 months. Public beta (Milestone 3) in ~9 months. AR prototype (Milestone 5) in ~18 months.
 
 **Q: How much will it cost?**  
-A: Early adopters: $10-15/month during beta. Later: $30-50/month for professionals. Free tier possible for open source core.
+A: Early adopters: $299 lifetime. Later: $30/month subscription. Free tier possible for open source core.
 
 **Q: What hardware do I need?**  
-A: Desktop/laptop. That's it. AR mode is Phase 4+ and completely optional.
+A: Desktop/laptop for 2D mode. Meta Quest 3 for AR mode (optional, not required).
 
 **Q: Will my data be private?**  
 A: Yes. Everything runs locally. Only API calls are to Gemini for embeddings/generation (you provide your own API key).
@@ -674,13 +587,13 @@ A: Yes. Everything runs locally. Only API calls are to Gemini for embeddings/gen
 A: Future feature. Initial version uses Gemini, but architecture supports swapping models.
 
 **Q: Does this replace ChatGPT?**  
-A: Different use case. ChatGPT: general questions. Nexus: deep research on YOUR documents with accurate citations and no hallucinations.
+A: Different use case. ChatGPT: general questions. Nexus: deep research on YOUR documents with multi-agent collaboration.
 
-**Q: Why not just use ChatGPT with file uploads?**  
-A: ChatGPT has 50-file limit, forgets context, hallucinates, and can't handle summary questions well. Nexus uses RAPTOR for hierarchical understanding and admits when it doesn't know.
+**Q: Why AR? Isn't that gimmicky?**  
+A: 2D mode is primary interface. AR is enhancement for spatial thinkers and unique selling point. Not required to use Nexus.
 
-**Q: What about fancy personas and AR?**  
-A: Only if validation proves users want them. Phase 0 is pure RAPTOR. Everything else is conditional on user demand.
+**Q: What about Nexus Learn (education version)?**  
+A: Future product after Nexus Pro is proven. Same tech, different personas and content. Targeting Phase 5+ (2+ years out).
 
 ---
 
@@ -693,18 +606,8 @@ MIT License (intended - to be added upon first release)
 ## Project Status
 
 **Current Phase:** Pre-Development (Architecture & Planning)  
-**Next Phase:** Phase 0 - Prove RAPTOR Works (2-3 months)  
-**Current Focus:** Kill all unnecessary features, build only the core value proposition
-
-**Looking For:** 
-- Early beta testers (engineers/researchers with 100+ documents in their workflow)
-- People who can provide honest feedback: "Does this beat standard RAG?"
-- Users willing to do side-by-side comparisons
-
-**Not Looking For (Yet):**
-- UI/UX designers (no UI in Phase 0)
-- AR/VR developers (Phase 4+, maybe never)
-- Growth hackers (need product-market fit first)
+**Next Milestone:** Milestone 1 - CLI RAPTOR Demo (3 months)  
+**Looking For:** Early beta testers (engineers/researchers with document-heavy workflows)
 
 ---
 
