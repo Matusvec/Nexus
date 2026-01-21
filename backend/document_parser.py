@@ -41,12 +41,24 @@ def parse_document(file_path: str) -> Dict[str, any]:
     file_path = Path(file_path)
     file_ext = file_path.suffix.lower()
     
+    # If no extension, try to auto-detect
+    if not file_ext:
+        for ext in ['.pdf', '.docx', '.doc']:
+            test_path = file_path.with_suffix(ext)
+            if test_path.exists():
+                print(f"📌 Auto-detected file: {test_path.name}")
+                file_path = test_path
+                file_ext = ext
+                break
+        else:
+            raise ValueError(f"File not found. Tried: {file_path}.pdf, {file_path}.docx, {file_path}.doc")
+    
     if file_ext == '.pdf':
         return parse_pdf(file_path)
     elif file_ext in ['.docx', '.doc']:
         return parse_docx(file_path)
     else:
-        raise ValueError(f"Unsupported file type: {file_ext}")
+        raise ValueError(f"Unsupported file type: {file_ext}. Use .pdf or .docx files.")
 
 
 def parse_pdf(file_path: Path) -> Dict[str, any]:
@@ -220,9 +232,21 @@ def parse_docx(file_path: Path) -> Dict[str, any]:
                     img_ref = f"img_{file_path.stem}_para{para_idx}_{images_processed}"
                     image_references.append(img_ref)
                     
-                    # Note: Full DOCX image extraction needs more complex code
-                    # For now, use placeholder with context awareness
-                    description = f"Image at paragraph {para_idx} (context: {context_before[:100]}...)"
+                    # Extract actual image data from DOCX
+                    image_data = extract_image_from_run(run, doc)
+                    
+                    if image_data:
+                        # Describe image with Gemini Vision
+                        description = describe_image_with_context(
+                            image_data,
+                            img_ref,
+                            context_before=context_before,
+                            context_after=context_after
+                        )
+                    else:
+                        # Fallback if image extraction fails
+                        description = f"Image at paragraph {para_idx} (extraction failed)"
+                    
                     text_parts.append(f"\n[IMAGE {img_ref}: {description}]\n")
                     images_processed += 1
                     
@@ -298,7 +322,7 @@ def describe_image_with_context(image_data: bytes, image_id: str, context_before
                             data=image_data,
                             mime_type="image/png"  # Gemini auto-detects format
                         ),
-                        types.Part.from_text(prompt)
+                        types.Part(text=prompt)  # Fixed: use Part(text=...) not Part.from_text(...)
                     ]
                 )
             ]
@@ -340,6 +364,35 @@ def extract_docx_table(table: DocxTable) -> List[List[str]]:
     return table_data
 
 
+def extract_image_from_run(run, document) -> bytes:
+    """
+    Extract image bytes from a DOCX run element
+    
+    Args:
+        run: python-docx Run object containing image
+        document: python-docx Document object
+        
+    Returns:
+        Image bytes or None if extraction fails
+    """
+    try:
+        # Get image relationship ID from the run
+        inline = run.element.xpath('.//a:blip/@r:embed')
+        if not inline:
+            return None
+        
+        # Get the image part from document relationships
+        image_id = inline[0]
+        image_part = document.part.related_parts[image_id]
+        
+        # Return the binary image data
+        return image_part.blob
+        
+    except Exception as e:
+        tqdm.write(f"      ⚠️  Image extraction error: {e}")
+        return None
+
+
 def detect_and_extract_table_from_image(image_data: bytes) -> Tuple[bool, List[List[str]]]:
     """
     Use Gemini Vision to detect if image contains a table and extract it
@@ -364,7 +417,7 @@ def detect_and_extract_table_from_image(image_data: bytes) -> Tuple[bool, List[L
                             data=image_data,
                             mime_type="image/png"
                         ),
-                        types.Part.from_text(
+                        types.Part(text=
                             "Does this image contain a data table with rows and columns? "
                             "Respond with 'YES' if it's a table, or 'NO' if it's not. "
                             "If YES, extract the table data in CSV format."
@@ -471,30 +524,73 @@ MARKDOWN:
 
 # Test
 if __name__ == "__main__":
-    print("Testing document parser...")
-    print("\nℹ️  To test, place a PDF or DOCX file in the backend folder")
-    print("ℹ️  Then run: python document_parser.py your_file.pdf")
-    print("ℹ️  Now with TABLE EXTRACTION support!")
-    
     import sys
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-        result = parse_document(file_path)
-        
-        print(f"\n{'='*60}")
-        print(f"📊 PARSING RESULTS")
-        print(f"{'='*60}")
-        print(f"Filename: {result['metadata']['filename']}")
-        print(f"Type: {result['metadata']['filetype']}")
-        print(f"Images: {result['images_found']}")
-        print(f"Tables: {result['tables_found']}")
-        if result.get('tables_found', 0) > 0:
-            print(f"  Table IDs: {', '.join(result['metadata'].get('table_references', []))}")
-        print(f"\nText length: {len(result['text'])} characters")
-        print(f"\nFirst 800 chars:")
-        print(result['text'][:800])
-        print(f"{'='*60}")
-    else:
-        print("\n✓ Parser ready! Usage: python document_parser.py <file.pdf>")
-        print("✓ Features: Text extraction, Image descriptions, Table extraction (DOCX native + PDF Vision)")
+    
+    if len(sys.argv) < 2:
+        print("Testing document parser...")
+        print("\nUsage: python document_parser.py <file.pdf|file.docx>")
+        print("\nThis will:")
+        print("  1. Parse the document (extract text, images, tables)")
+        print("  2. Chunk the text semantically (100-500 tokens)")
+        print("  3. Store chunks in ChromaDB with metadata")
+        print("\nExample:")
+        print("  python document_parser.py research_paper.pdf")
+        sys.exit(0)
+    
+    file_path = sys.argv[1]
+    
+    print("="*60)
+    print("📥 DOCUMENT PROCESSING PIPELINE")
+    print("="*60)
+    
+    # Step 1: Parse document
+    print("\n[STEP 1/3] Parsing document...")
+    result = parse_document(file_path)
+    
+    print(f"\n✓ Parsing complete:")
+    print(f"  - Text: {len(result['text'])} characters")
+    print(f"  - Images: {result['images_found']}")
+    print(f"  - Tables: {result['tables_found']}")
+    
+    # Step 2: Chunk text
+    print("\n[STEP 2/3] Chunking text...")
+    from chunking import chunk_text
+    
+    chunks = chunk_text(
+        result['text'],
+        similarity_threshold=0.7,
+        min_tokens=100,
+        max_tokens=500,
+        group_size=2
+    )
+    
+    print(f"\n✓ Created {len(chunks)} semantic chunks")
+    
+    # Step 3: Store in ChromaDB
+    print("\n[STEP 3/3] Storing in ChromaDB...")
+    from storage import store_chunks, get_collection_stats
+    
+    document_id = Path(file_path).stem
+    
+    chunk_ids = store_chunks(
+        chunks=chunks,
+        document_id=document_id,
+        collection_name="raptor_chunks",
+        layer=0
+    )
+    
+    # Final summary
+    print("\n" + "="*60)
+    print("✅ PROCESSING COMPLETE")
+    print("="*60)
+    print(f"Document: {result['metadata']['filename']}")
+    print(f"Chunks stored: {len(chunk_ids)}")
+    
+    stats = get_collection_stats()
+    print(f"\n📊 Database Statistics:")
+    print(f"  Total chunks: {stats['total_chunks']}")
+    print(f"  Documents: {len(stats['documents'])}")
+    print(f"  Chunks with images: {stats['content_types']['image']}")
+    print(f"  Chunks with tables: {stats['content_types']['table']}")
+    print("="*60)
 

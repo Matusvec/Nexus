@@ -87,9 +87,6 @@ def chunk_text(
     current_chunk = [sentence_groups[0]]
     current_tokens = count_tokens(sentence_groups[0])
     
-    # Extract image references for preservation (Microsoft best practice)
-    image_refs = extract_image_references(text)
-    
     for i, similarity in enumerate(similarities):
         next_group = sentence_groups[i + 1]
         next_tokens = count_tokens(next_group)
@@ -97,10 +94,7 @@ def chunk_text(
         # Split if: topic shifts OR max tokens would be exceeded
         if similarity < similarity_threshold or (current_tokens + next_tokens > max_tokens):
             # Start new chunk
-            chunk_text = " ".join(current_chunk)
-            # Preserve image references if chunk mentions them
-            chunk_text = preserve_image_refs_in_chunk(chunk_text, image_refs)
-            chunks.append(chunk_text)
+            chunks.append(" ".join(current_chunk))
             current_chunk = [next_group]
             current_tokens = next_tokens
         else:
@@ -110,9 +104,7 @@ def chunk_text(
     
     # Add final chunk
     if current_chunk:
-        chunk_text = " ".join(current_chunk)
-        chunk_text = preserve_image_refs_in_chunk(chunk_text, image_refs)
-        chunks.append(chunk_text)
+        chunks.append(" ".join(current_chunk))
     
     # Post-process: merge very small chunks with neighbors
     chunks = merge_small_chunks(chunks, min_tokens=min_tokens)
@@ -200,66 +192,3 @@ if __name__ == "__main__":
     
     print("\n✓ Semantic chunking complete!")
     print(f"✓ Token tracking: min 50, max 200 tokens per chunk")
-
-
-def extract_image_references(text: str) -> List[str]:
-    """
-    Extract all image and table reference IDs from text
-    
-    Microsoft best practice: Track image/table references so they can be
-    included in all chunks that discuss the image/table
-    
-    Args:
-        text: Text containing [IMAGE img_id: ...] or [TABLE table_id: ...] markers
-        
-    Returns:
-        List of unique image/table reference IDs
-    """
-    # Match both IMAGE and TABLE markers
-    image_pattern = r'\[IMAGE\s+([^\s:]+):'
-    table_pattern = r'\[TABLE\s+([^\s:]+):'
-    
-    image_matches = re.findall(image_pattern, text)
-    table_matches = re.findall(table_pattern, text)
-    
-    all_refs = image_matches + table_matches
-    return list(set(all_refs))  # Deduplicate
-
-
-def preserve_image_refs_in_chunk(chunk: str, all_image_refs: List[str]) -> str:
-    """
-    Ensure image and table references are preserved in chunks
-    
-    Microsoft best practice: If image/table description splits across chunks,
-    include reference ID in each chunk
-    
-    Args:
-        chunk: Text chunk
-        all_image_refs: All image/table reference IDs from document
-        
-    Returns:
-        Chunk with preserved image/table references (if any are mentioned)
-    """
-    # Check if chunk mentions any images or tables
-    chunk_refs = extract_image_references(chunk)
-    
-    # Chunk already has explicit markers, return as-is
-    if chunk_refs:
-        return chunk
-    
-    # Check if chunk contains text that likely refers to images or tables
-    # (e.g., "as shown in the figure", "the table above")
-    reference_phrases = [
-        r'\bfigure\b', r'\bdiagram\b', r'\bchart\b', r'\bgraph\b',
-        r'\bimage\b', r'\bpicture\b', r'\btable\b', r'\billustration\b',
-        r'\babove\b', r'\bbelow\b', r'\bshown\b'
-    ]
-    
-    has_visual_reference = any(re.search(phrase, chunk, re.IGNORECASE) for phrase in reference_phrases)
-    
-    # If chunk likely discusses an image but doesn't have explicit marker,
-    # this is where you'd add logic to link it to nearby images
-    # For now, we return chunk as-is since explicit markers are preferred
-    
-    return chunk
-
