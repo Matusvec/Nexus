@@ -26,6 +26,10 @@ python-dotenv==1.0.0
 umap-learn==0.5.5
 hdbscan==0.8.33
 
+# Leiden clustering (from Frontiers 2026 paper)
+python-igraph==0.11.3
+leidenalg==0.10.2
+
 # ===== PLANNED FOR API =====
 
 # FastAPI server

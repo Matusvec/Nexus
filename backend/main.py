@@ -90,6 +90,14 @@ def cmd_upload(args):
     print("=" * 60)
     print(f"Document: {result['metadata']['filename']}")
     print(f"Chunks stored: {len(chunk_ids)}")
+    
+    # Warn if too few chunks for optimal RAPTOR tree building
+    from raptor import UMAP_RECOMMENDED_MIN_SAMPLES
+    if len(chunk_ids) < UMAP_RECOMMENDED_MIN_SAMPLES:
+        print(f"\n⚠️  WARNING: Only {len(chunk_ids)} chunks created.")
+        print(f"   RAPTOR tree building works best with {UMAP_RECOMMENDED_MIN_SAMPLES}+ chunks.")
+        print(f"   With fewer chunks, UMAP will fall back to PCA (less optimal clustering).")
+        print(f"   Consider uploading a longer document or lowering --max-tokens.")
     print(f"Features used:")
     print(f"  ✓ Semantic chunking with {args.overlap_tokens}-token overlap")
     print(f"  ✓ Contextual embeddings (Anthropic's method)")

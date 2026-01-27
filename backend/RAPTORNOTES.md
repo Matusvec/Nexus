@@ -265,3 +265,7 @@ scikit-learn>=1.0.0    # For GMM clustering (already have for cosine_similarity)
    - Paper didn't specify
    - **Decision:** Include in cluster if probability > 0.1
 
+
+
+-Here is a cool graph from this research paper: 
+![alt text](image-2.png)

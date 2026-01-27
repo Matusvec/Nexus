@@ -2,12 +2,16 @@
 RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval
 
 Implementation based on the ICLR 2024 paper by Stanford researchers.
-Builds a hierarchical tree structure with summaries at different levels of abstraction.
+Enhanced with techniques from:
+- LATTICE (arXiv:2510.13217): LLM-guided hierarchical retrieval
+- BookRAG (arXiv:2512.03413): Query classification and adaptive retrieval
+- Frontiers 2026 paper: Leiden clustering with layer-aware parameters
 
 Key components:
-1. Clustering: GMM + UMAP for soft clustering
+1. Clustering: GMM + UMAP OR Leiden algorithm (configurable)
 2. Summarization: LLM-generated summaries of clusters
 3. Tree building: Recursive bottom-up construction
+4. Layer-aware parameters: Adaptive clustering granularity per tree level
 """
 from typing import List, Dict, Optional, Tuple
 import numpy as np
@@ -42,6 +46,16 @@ SOFT_CLUSTER_THRESHOLD = 0.1    # GMM probability threshold for soft clustering
 UMAP_N_COMPONENTS = 10          # Reduce to this many dimensions
 UMAP_MIN_DIST = 0.0             # Minimum distance for UMAP
 UMAP_METRIC = 'cosine'          # Distance metric
+UMAP_RECOMMENDED_MIN_SAMPLES = 15  # Minimum samples for reliable UMAP (matches n_neighbors default)
+
+# Leiden clustering parameters (from Frontiers 2026 paper)
+LEIDEN_BASE_RESOLUTION = 1.0    # Base resolution for Leiden algorithm
+LEIDEN_RESOLUTION_DECAY = 0.7   # Resolution multiplier per layer (lower = broader clusters)
+LEIDEN_KNN_NEIGHBORS = 10       # k for k-NN graph construction
+LEIDEN_SIMILARITY_THRESHOLD = 0.3  # Minimum similarity to create edge
+
+# Clustering method selection
+CLUSTERING_METHOD = "leiden"    # Options: "gmm", "leiden"
 
 
 # ============================================================================
@@ -197,6 +211,202 @@ def cluster_embeddings(
     clusters = [c for c in clusters if len(c) > 0]
     
     return clusters, probabilities
+
+
+# ============================================================================
+# LEIDEN CLUSTERING MODULE (from Frontiers 2026 paper)
+# ============================================================================
+
+def build_similarity_graph(embeddings: np.ndarray, k: int = LEIDEN_KNN_NEIGHBORS) -> 'igraph.Graph':
+    """
+    Build a k-NN similarity graph from embeddings for Leiden clustering.
+    
+    Uses cosine similarity to connect similar nodes.
+    
+    Args:
+        embeddings: Embedding matrix (n_samples, n_features)
+        k: Number of nearest neighbors per node
+        
+    Returns:
+        igraph.Graph with similarity weights on edges
+    """
+    import igraph as ig
+    from sklearn.metrics.pairwise import cosine_similarity
+    
+    n_samples = embeddings.shape[0]
+    
+    # Compute pairwise cosine similarity
+    similarities = cosine_similarity(embeddings)
+    
+    # Build edge list from k-NN
+    edges = []
+    weights = []
+    
+    for i in range(n_samples):
+        # Get k most similar nodes (excluding self)
+        sim_scores = similarities[i].copy()
+        sim_scores[i] = -1  # Exclude self
+        
+        # Get top-k neighbors
+        top_k_indices = np.argsort(sim_scores)[-k:]
+        
+        for j in top_k_indices:
+            if sim_scores[j] > LEIDEN_SIMILARITY_THRESHOLD:
+                # Add edge (avoid duplicates by only adding i < j)
+                if i < j:
+                    edges.append((i, j))
+                    weights.append(float(sim_scores[j]))
+    
+    # Create graph
+    g = ig.Graph(n=n_samples, edges=edges, directed=False)
+    g.es['weight'] = weights
+    
+    return g
+
+
+def get_layer_resolution(layer: int) -> float:
+    """
+    Calculate Leiden resolution parameter for a given layer.
+    
+    Higher layers use lower resolution → broader clusters.
+    This implements "layer-aware dual-adaptive parameters" from the Frontiers paper.
+    
+    Args:
+        layer: Current tree layer (0 = base chunks)
+        
+    Returns:
+        Resolution parameter for Leiden algorithm
+    """
+    return LEIDEN_BASE_RESOLUTION * (LEIDEN_RESOLUTION_DECAY ** layer)
+
+
+def cluster_with_leiden(
+    embeddings: np.ndarray,
+    layer: int = 0,
+    use_soft_clustering: bool = True
+) -> Tuple[List[List[int]], np.ndarray]:
+    """
+    Cluster embeddings using Leiden algorithm with layer-aware resolution.
+    
+    Leiden is a community detection algorithm that:
+    - Scales as O(n log n) vs O(n²) for GMM
+    - Naturally finds graph communities (arbitrary shapes)
+    - Adapts cluster granularity via resolution parameter
+    
+    Based on: "Enhancing RAPTOR with Semantic Chunking and Adaptive Graph Clustering"
+    (Frontiers in Computer Science 2026)
+    
+    Args:
+        embeddings: Embedding matrix (n_samples, n_features)
+        layer: Current tree layer (affects resolution)
+        use_soft_clustering: If True, nodes can belong to overlapping clusters
+        
+    Returns:
+        Tuple of (cluster_assignments, membership_matrix)
+    """
+    try:
+        import igraph as ig
+        import leidenalg
+    except ImportError:
+        print("   ⚠️ Leiden clustering requires: pip install python-igraph leidenalg")
+        print("   Falling back to GMM clustering...")
+        return cluster_embeddings(embeddings)
+    
+    n_samples = embeddings.shape[0]
+    
+    if n_samples < MIN_NODES_FOR_CLUSTERING:
+        return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
+    
+    # Get layer-aware resolution
+    resolution = get_layer_resolution(layer)
+    print(f"   Building similarity graph ({n_samples} nodes)...")
+    
+    # Build k-NN graph
+    graph = build_similarity_graph(embeddings)
+    
+    print(f"   Leiden clustering (resolution={resolution:.3f}, layer={layer})...")
+    
+    # Run Leiden algorithm
+    partition = leidenalg.find_partition(
+        graph,
+        leidenalg.RBConfigurationVertexPartition,
+        weights='weight',
+        resolution_parameter=resolution,
+        seed=42
+    )
+    
+    # Extract clusters
+    n_clusters = len(partition)
+    clusters = [list(community) for community in partition]
+    
+    # Build membership matrix (for compatibility with GMM output)
+    membership = np.zeros((n_samples, n_clusters))
+    for cluster_idx, members in enumerate(clusters):
+        for node_idx in members:
+            membership[node_idx, cluster_idx] = 1.0
+    
+    # Soft clustering: add nodes to neighboring clusters if similarity is high
+    if use_soft_clustering and n_clusters > 1:
+        from sklearn.metrics.pairwise import cosine_similarity
+        similarities = cosine_similarity(embeddings)
+        
+        for i in range(n_samples):
+            home_cluster = np.argmax(membership[i])
+            
+            # Check if this node should also belong to other clusters
+            for cluster_idx, members in enumerate(clusters):
+                if cluster_idx == home_cluster:
+                    continue
+                    
+                # Calculate average similarity to cluster members
+                if len(members) > 0:
+                    avg_sim = np.mean([similarities[i, j] for j in members])
+                    
+                    # If highly similar to another cluster, add soft membership
+                    if avg_sim > SOFT_CLUSTER_THRESHOLD + 0.2:  # Slightly higher threshold
+                        membership[i, cluster_idx] = avg_sim
+                        if i not in clusters[cluster_idx]:
+                            clusters[cluster_idx].append(i)
+    
+    # Remove empty clusters
+    non_empty = [(c, membership[:, idx]) for idx, c in enumerate(clusters) if len(c) > 0]
+    clusters = [c for c, _ in non_empty]
+    
+    print(f"   ✓ Found {len(clusters)} communities")
+    
+    return clusters, membership
+
+
+def cluster_adaptive(
+    embeddings: np.ndarray,
+    layer: int = 0,
+    method: str = CLUSTERING_METHOD,
+    use_soft_clustering: bool = True
+) -> Tuple[List[List[int]], np.ndarray]:
+    """
+    Unified clustering interface with method selection.
+    
+    Automatically chooses between GMM and Leiden based on configuration,
+    with fallback handling.
+    
+    Args:
+        embeddings: Embedding matrix
+        layer: Current tree layer
+        method: "gmm" or "leiden"
+        use_soft_clustering: Allow nodes in multiple clusters
+        
+    Returns:
+        Tuple of (cluster_assignments, probabilities/membership)
+    """
+    if method == "leiden":
+        try:
+            return cluster_with_leiden(embeddings, layer, use_soft_clustering)
+        except Exception as e:
+            print(f"   ⚠️ Leiden failed: {e}")
+            print(f"   Falling back to GMM...")
+            return cluster_embeddings(embeddings, use_soft_clustering=use_soft_clustering)
+    else:
+        return cluster_embeddings(embeddings, use_soft_clustering=use_soft_clustering)
 
 
 # ============================================================================
@@ -386,8 +596,12 @@ def build_layer(
     # Convert to numpy array
     embeddings_array = np.array(embeddings)
     
-    # Cluster the chunks
-    clusters, probabilities = cluster_embeddings(embeddings_array)
+    # Cluster the chunks using layer-aware adaptive clustering
+    clusters, probabilities = cluster_adaptive(
+        embeddings_array, 
+        layer=current_layer,
+        method=CLUSTERING_METHOD
+    )
     
     print(f"   Created {len(clusters)} clusters")
     
@@ -465,6 +679,12 @@ def build_raptor_tree(
     stats["total_nodes"] = len(chunk_ids)
     
     print(f"📊 Starting with {len(chunk_ids)} base chunks (layer 0)")
+    
+    # Warn if below recommended minimum for UMAP
+    if len(chunk_ids) < UMAP_RECOMMENDED_MIN_SAMPLES:
+        print(f"\n⚠️  Note: Only {len(chunk_ids)} chunks (recommended: {UMAP_RECOMMENDED_MIN_SAMPLES}+)")
+        print(f"   UMAP may fall back to PCA for dimensionality reduction.")
+        print(f"   Tree will still be built, but clustering may be less optimal.\n")
     
     # Build layers recursively
     current_layer = 0

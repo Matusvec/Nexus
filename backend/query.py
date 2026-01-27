@@ -2,6 +2,10 @@
 Query Module for RAPTOR-enhanced RAG
 
 Implements collapsed tree retrieval method from the RAPTOR paper.
+Enhanced with:
+- Query classification (from BookRAG paper) for adaptive retrieval
+- LLM-guided traversal option (from LATTICE paper)
+
 Queries across all layers of the tree simultaneously for comprehensive retrieval.
 """
 from typing import List, Dict, Optional, Tuple
@@ -19,6 +23,128 @@ import config
 DEFAULT_TOP_K = 10              # Default number of results to return
 MAX_CONTEXT_TOKENS = 8000       # Max tokens for context window
 LAYER_BOOST_FACTOR = 0.05       # Boost factor per layer (higher = prefer summaries)
+
+# Query classification settings (from BookRAG paper)
+ENABLE_QUERY_CLASSIFICATION = True
+SIMPLE_QUERY_TOP_K = 5          # Fewer results for simple queries
+COMPLEX_QUERY_TOP_K = 15        # More results for complex queries
+
+
+# ============================================================================
+# QUERY CLASSIFICATION (from BookRAG - arXiv:2512.03413)
+# ============================================================================
+
+def classify_query(query: str) -> Dict[str, any]:
+    """
+    Classify query complexity to adapt retrieval strategy.
+    
+    Based on Information Foraging Theory from BookRAG paper.
+    Classifies queries as:
+    - simple: Direct lookup, single fact retrieval
+    - complex: Multi-hop reasoning, comparative analysis
+    - exploratory: Broad topic exploration
+    
+    Args:
+        query: The user's question
+        
+    Returns:
+        Dict with 'type', 'confidence', 'recommended_strategy'
+    """
+    # Indicators for complex queries
+    complex_indicators = [
+        "compare", "contrast", "difference", "between",
+        "how does", "why does", "explain why",
+        "relationship", "relate", "connection",
+        "multiple", "several", "all the",
+        "step by step", "process", "procedure",
+        "advantages", "disadvantages", "pros and cons",
+        "impact", "effect", "influence", "affect"
+    ]
+    
+    # Indicators for simple queries
+    simple_indicators = [
+        "what is", "define", "who is", "when did",
+        "where is", "which", "name the", "list",
+        "how many", "how much"
+    ]
+    
+    # Indicators for exploratory queries
+    exploratory_indicators = [
+        "tell me about", "overview", "summarize",
+        "what do you know", "everything about",
+        "introduction to", "basics of"
+    ]
+    
+    query_lower = query.lower()
+    
+    # Count matches
+    complex_score = sum(1 for ind in complex_indicators if ind in query_lower)
+    simple_score = sum(1 for ind in simple_indicators if ind in query_lower)
+    exploratory_score = sum(1 for ind in exploratory_indicators if ind in query_lower)
+    
+    # Additional complexity heuristics
+    word_count = len(query.split())
+    has_multiple_questions = query.count("?") > 1
+    has_conjunction = any(w in query_lower for w in [" and ", " or ", " but "])
+    
+    if has_multiple_questions:
+        complex_score += 2
+    if has_conjunction:
+        complex_score += 1
+    if word_count > 15:
+        complex_score += 1
+    if word_count < 6:
+        simple_score += 1
+    
+    # Determine type
+    max_score = max(complex_score, simple_score, exploratory_score)
+    
+    if max_score == 0:
+        # Default to simple for very short/unclear queries
+        query_type = "simple"
+        confidence = 0.5
+    elif complex_score >= simple_score and complex_score >= exploratory_score:
+        query_type = "complex"
+        confidence = min(0.9, 0.5 + complex_score * 0.1)
+    elif exploratory_score > simple_score:
+        query_type = "exploratory"
+        confidence = min(0.9, 0.5 + exploratory_score * 0.15)
+    else:
+        query_type = "simple"
+        confidence = min(0.9, 0.5 + simple_score * 0.1)
+    
+    # Determine recommended strategy
+    strategies = {
+        "simple": {
+            "retrieval": "collapsed_tree",
+            "top_k": SIMPLE_QUERY_TOP_K,
+            "prefer_layers": [0, 1],  # Prefer base chunks and first summary layer
+            "description": "Direct retrieval from lower tree layers"
+        },
+        "complex": {
+            "retrieval": "collapsed_tree",
+            "top_k": COMPLEX_QUERY_TOP_K,
+            "prefer_layers": None,  # All layers equally
+            "description": "Broad retrieval across all tree layers"
+        },
+        "exploratory": {
+            "retrieval": "collapsed_tree",
+            "top_k": DEFAULT_TOP_K,
+            "prefer_layers": [1, 2, 3],  # Prefer summary layers
+            "description": "Focus on summary layers for overview"
+        }
+    }
+    
+    return {
+        "type": query_type,
+        "confidence": confidence,
+        "scores": {
+            "simple": simple_score,
+            "complex": complex_score,
+            "exploratory": exploratory_score
+        },
+        "strategy": strategies[query_type]
+    }
 
 
 # ============================================================================
@@ -241,6 +367,62 @@ def layer_specific_retrieval(
 
 
 # ============================================================================
+# ADAPTIVE RETRIEVAL (combines query classification with retrieval)
+# ============================================================================
+
+def adaptive_retrieval(
+    query: str,
+    document_id: Optional[str] = None,
+    collection_name: str = "raptor_chunks",
+    verbose: bool = False
+) -> Tuple[List[Dict], Dict]:
+    """
+    Intelligent retrieval that adapts strategy based on query classification.
+    
+    Based on Information Foraging Theory from BookRAG paper.
+    
+    Args:
+        query: The user's question
+        document_id: Optional document filter
+        collection_name: ChromaDB collection name
+        verbose: Print classification details
+        
+    Returns:
+        Tuple of (results, classification_info)
+    """
+    # Classify the query
+    classification = classify_query(query)
+    strategy = classification["strategy"]
+    
+    if verbose:
+        print(f"   Query type: {classification['type']} (confidence: {classification['confidence']:.2f})")
+        print(f"   Strategy: {strategy['description']}")
+        print(f"   Top-k: {strategy['top_k']}")
+    
+    # Build layer weights based on preferred layers
+    layer_weights = None
+    if strategy["prefer_layers"]:
+        # Boost preferred layers (lower weight = higher priority)
+        layer_weights = {}
+        for layer in range(10):  # Support up to 10 layers
+            if layer in strategy["prefer_layers"]:
+                layer_weights[layer] = 0.8  # 20% boost
+            else:
+                layer_weights[layer] = 1.2  # 20% penalty
+    
+    # Execute retrieval with adapted parameters
+    results = collapsed_tree_retrieval(
+        query=query,
+        document_id=document_id,
+        top_k=strategy["top_k"],
+        collection_name=collection_name,
+        layer_weights=layer_weights
+    )
+    
+    return results, classification
+
+
+# ============================================================================
 # CONTEXT BUILDING
 # ============================================================================
 
@@ -336,7 +518,9 @@ def answer_question(
     document_id: Optional[str] = None,
     top_k: int = DEFAULT_TOP_K,
     collection_name: str = "raptor_chunks",
-    show_sources: bool = True
+    show_sources: bool = True,
+    use_adaptive: bool = ENABLE_QUERY_CLASSIFICATION,
+    verbose: bool = False
 ) -> Dict:
     """
     Answer a question using RAPTOR-enhanced retrieval
@@ -344,26 +528,41 @@ def answer_question(
     Args:
         question: The question to answer
         document_id: Optional document filter
-        top_k: Number of chunks to retrieve
+        top_k: Number of chunks to retrieve (may be overridden by adaptive)
         collection_name: ChromaDB collection name
         show_sources: Include source references in response
+        use_adaptive: Use query classification for adaptive retrieval
+        verbose: Print classification details
         
     Returns:
-        Dict with 'answer', 'sources', 'context_chunks'
+        Dict with 'answer', 'sources', 'context_chunks', 'query_classification'
     """
-    # Retrieve relevant chunks using collapsed tree
-    results = collapsed_tree_retrieval(
-        query=question,
-        document_id=document_id,
-        top_k=top_k,
-        collection_name=collection_name
-    )
+    classification = None
+    
+    # Retrieve relevant chunks
+    if use_adaptive:
+        results, classification = adaptive_retrieval(
+            query=question,
+            document_id=document_id,
+            collection_name=collection_name,
+            verbose=verbose
+        )
+        if verbose:
+            print(f"   Retrieved {len(results)} chunks")
+    else:
+        results = collapsed_tree_retrieval(
+            query=question,
+            document_id=document_id,
+            top_k=top_k,
+            collection_name=collection_name
+        )
     
     if not results:
         return {
             "answer": "I couldn't find any relevant information to answer this question.",
             "sources": [],
-            "context_chunks": []
+            "context_chunks": [],
+            "query_classification": classification
         }
     
     # Deduplicate
@@ -401,7 +600,8 @@ relevant details from the sources when appropriate."""
     return {
         "answer": answer,
         "sources": sources if show_sources else [],
-        "context_chunks": results
+        "context_chunks": results,
+        "query_classification": classification
     }
 
 
