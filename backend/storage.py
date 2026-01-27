@@ -1,12 +1,12 @@
 """
 ChromaDB storage for RAPTOR chunks with image/table metadata tracking
 """
-import re
 from typing import List, Dict, Optional
 import chromadb
 from chromadb.config import Settings
 import config
 from embeddings import get_embeddings
+from utils import count_tokens, extract_content_references
 from tqdm import tqdm
 
 
@@ -45,53 +45,6 @@ def get_or_create_collection(collection_name: str = "raptor_chunks"):
     return collection
 
 
-def extract_content_metadata(chunk_text: str) -> Dict[str, any]:
-    """
-    Extract metadata about content types and references from chunk text
-    
-    Args:
-        chunk_text: Text chunk with [IMAGE ...] and [TABLE ...] markers
-        
-    Returns:
-        Dict with content_types, image_refs, table_refs
-    """
-    # Extract image references
-    image_pattern = r'\[IMAGE\s+([^\s:]+):'
-    image_refs = re.findall(image_pattern, chunk_text)
-    
-    # Extract table references
-    table_pattern = r'\[TABLE\s+([^\s:]+):'
-    table_refs = re.findall(table_pattern, chunk_text)
-    
-    # Determine content types
-    content_types = ["text"]  # Always has text
-    if image_refs:
-        content_types.append("image")
-    if table_refs:
-        content_types.append("table")
-    
-    return {
-        "content_types": content_types,
-        "image_refs": image_refs,
-        "table_refs": table_refs,
-        "has_images": len(image_refs) > 0,
-        "has_tables": len(table_refs) > 0
-    }
-
-
-def count_tokens(text: str) -> int:
-    """
-    Estimate token count (1 token ≈ 4 characters)
-    
-    Args:
-        text: Input text
-        
-    Returns:
-        Estimated token count
-    """
-    return len(text) // 4
-
-
 def store_chunks(
     chunks: List[str],
     document_id: str,
@@ -127,8 +80,8 @@ def store_chunks(
         # Generate unique chunk ID
         chunk_id = f"{document_id}_L{layer}_chunk{idx}"
         
-        # Extract content metadata
-        content_meta = extract_content_metadata(chunk)
+        # Extract content metadata using shared utility
+        content_meta = extract_content_references(chunk)
         
         # Build metadata
         metadata = {
@@ -169,6 +122,102 @@ def store_chunks(
     )
     
     print(f"   ✓ Stored {len(chunk_ids)} chunks successfully")
+    return chunk_ids
+
+
+def store_contextualized_chunks(
+    chunks: List[Dict],
+    document_id: str,
+    doc_summary: str = "",
+    collection_name: str = "raptor_chunks",
+    layer: int = 0
+) -> List[str]:
+    """
+    Store contextualized chunks in ChromaDB (Anthropic's Contextual Retrieval)
+    
+    Key difference from store_chunks:
+    - Embeds the CONTEXTUALIZED version (better retrieval)
+    - Stores the ORIGINAL version (for display to user)
+    - Tracks contextual metadata
+    
+    Args:
+        chunks: List of dicts with 'original', 'contextualized', 'context', 'chunk_index'
+        document_id: Identifier for source document
+        doc_summary: Document summary for metadata
+        collection_name: ChromaDB collection name
+        layer: RAPTOR layer (0 = base chunks, 1+ = summaries)
+        
+    Returns:
+        List of chunk IDs
+    """
+    print(f"\n💾 Storing {len(chunks)} contextualized chunks in ChromaDB...")
+    print(f"   Document: {document_id}")
+    print(f"   Layer: {layer}")
+    print(f"   Using: Contextual Embeddings (Anthropic's method)")
+    
+    collection = get_or_create_collection(collection_name)
+    
+    # Prepare data for batch insert
+    chunk_ids = []
+    chunk_texts = []  # Original text for storage
+    contextual_texts = []  # Contextualized text for embedding
+    chunk_metadatas = []
+    
+    for chunk in tqdm(chunks, desc="Processing chunks", unit="chunk"):
+        idx = chunk.get("chunk_index", 0)
+        original = chunk.get("original", "")
+        contextualized = chunk.get("contextualized", original)
+        context = chunk.get("context", "")
+        content_type = chunk.get("content_type", "text")
+        
+        # Generate unique chunk ID
+        chunk_id = f"{document_id}_L{layer}_chunk{idx}"
+        
+        # Extract content metadata using shared utility
+        content_meta = extract_content_references(original)
+        
+        # Build metadata
+        metadata = {
+            "document_id": document_id,
+            "chunk_index": idx,
+            "layer": layer,
+            "token_count": count_tokens(original),
+            "contextual_token_count": count_tokens(contextualized),
+            "content_type": content_type,
+            "content_types": ",".join(content_meta["content_types"]),
+            "has_images": content_meta["has_images"],
+            "has_tables": content_meta["has_tables"],
+            "has_context": bool(context),
+            "doc_summary": doc_summary[:200] if doc_summary else "",
+        }
+        
+        # Add image/table references if present
+        if content_meta["image_refs"]:
+            metadata["image_refs"] = ",".join(content_meta["image_refs"])
+        if content_meta["table_refs"]:
+            metadata["table_refs"] = ",".join(content_meta["table_refs"])
+        if chunk.get("ref_id"):
+            metadata["ref_id"] = chunk["ref_id"]
+        
+        chunk_ids.append(chunk_id)
+        chunk_texts.append(original)  # Store original for display
+        contextual_texts.append(contextualized)  # Embed contextual version
+        chunk_metadatas.append(metadata)
+    
+    # Generate embeddings from CONTEXTUALIZED versions (key for retrieval improvement)
+    print(f"   Generating embeddings from contextualized text...")
+    embeddings = get_embeddings(contextual_texts)
+    
+    # Store in ChromaDB (original text, but contextualized embeddings)
+    print(f"   Storing in ChromaDB...")
+    collection.add(
+        ids=chunk_ids,
+        documents=chunk_texts,  # Store original text
+        embeddings=embeddings,  # Use contextualized embeddings
+        metadatas=chunk_metadatas
+    )
+    
+    print(f"   ✓ Stored {len(chunk_ids)} chunks with contextual embeddings")
     return chunk_ids
 
 

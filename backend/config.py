@@ -28,8 +28,8 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Gemini Models
-GEMINI_EMBEDDING_MODEL = "models/text-embedding-004"
-GEMINI_GENERATION_MODEL = "models/gemini-2.0-flash-exp"
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+GEMINI_GENERATION_MODEL = "gemini-2.0-flash-exp"
 
 print(f"✓ Config loaded: ChromaDB at {CHROMA_PERSIST_DIR}")
 print(f"✓ RAPTOR: {RAPTOR_MAX_LAYERS} layers, chunk size {RAPTOR_CHUNK_SIZE}")

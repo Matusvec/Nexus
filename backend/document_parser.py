@@ -1,10 +1,11 @@
 """
 Document parsing - Extract text from PDFs, DOCX, and describe images + tables
+
+This module handles ONLY document parsing. For the full pipeline,
+use main.py which orchestrates parsing -> chunking -> storage.
 """
-import re
 from pathlib import Path
 from typing import Dict, List, Tuple
-import io
 from tqdm import tqdm
 
 # PDF parsing
@@ -14,14 +15,8 @@ from pypdf import PdfReader
 from docx import Document
 from docx.table import Table as DocxTable
 
-# Image and table description with Gemini
-from google import genai
-from google.genai import types
-import config
-
-
-# Gemini client for vision and text generation
-client = genai.Client(api_key=config.GEMINI_API_KEY)
+# Use centralized Gemini client
+from gemini_client import generate_with_image, generate_content
 
 
 def parse_document(file_path: str) -> Dict[str, any]:
@@ -311,24 +306,8 @@ def describe_image_with_context(image_data: bytes, image_id: str, context_before
         
         prompt = "".join(prompt_parts)
         
-        # Upload image to Gemini with context-aware prompt
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_bytes(
-                            data=image_data,
-                            mime_type="image/png"  # Gemini auto-detects format
-                        ),
-                        types.Part(text=prompt)  # Fixed: use Part(text=...) not Part.from_text(...)
-                    ]
-                )
-            ]
-        )
-        
-        description = response.text.strip()
+        # Use centralized Gemini client
+        description = generate_with_image(image_data, prompt)
         tqdm.write(f"      ✓ {description[:60]}...")
         return description
         
@@ -406,28 +385,13 @@ def detect_and_extract_table_from_image(image_data: bytes) -> Tuple[bool, List[L
     tqdm.write(f"    📊 Checking if image contains table...")
     
     try:
-        # Ask Gemini Vision if this is a table
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_bytes(
-                            data=image_data,
-                            mime_type="image/png"
-                        ),
-                        types.Part(text=
-                            "Does this image contain a data table with rows and columns? "
-                            "Respond with 'YES' if it's a table, or 'NO' if it's not. "
-                            "If YES, extract the table data in CSV format."
-                        )
-                    ]
-                )
-            ]
+        prompt = (
+            "Does this image contain a data table with rows and columns? "
+            "Respond with 'YES' if it's a table, or 'NO' if it's not. "
+            "If YES, extract the table data in CSV format."
         )
         
-        result = response.text.strip()
+        result = generate_with_image(image_data, prompt)
         
         if result.upper().startswith('YES'):
             # Extract table data (simplified - assumes CSV format in response)
@@ -485,12 +449,8 @@ MARKDOWN:
 <table in markdown format>
 """
         
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
-            contents=prompt
-        )
-        
-        result = response.text.strip()
+        # Use centralized Gemini client
+        result = generate_content(prompt)
         
         # Parse response to extract description and markdown
         if "DESCRIPTION:" in result and "MARKDOWN:" in result:
@@ -520,77 +480,37 @@ MARKDOWN:
 
 
 
-
-
-# Test
+# Test parsing only (use main.py for full pipeline)
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 2:
-        print("Testing document parser...")
+        print("Document Parser - Extract text, images, and tables")
         print("\nUsage: python document_parser.py <file.pdf|file.docx>")
-        print("\nThis will:")
-        print("  1. Parse the document (extract text, images, tables)")
-        print("  2. Chunk the text semantically (100-500 tokens)")
-        print("  3. Store chunks in ChromaDB with metadata")
-        print("\nExample:")
-        print("  python document_parser.py research_paper.pdf")
+        print("\nThis will ONLY parse the document.")
+        print("For the full pipeline (parse → chunk → store), use:")
+        print("  python main.py upload <file>")
         sys.exit(0)
     
     file_path = sys.argv[1]
     
     print("="*60)
-    print("📥 DOCUMENT PROCESSING PIPELINE")
+    print("📄 DOCUMENT PARSING")
     print("="*60)
     
-    # Step 1: Parse document
-    print("\n[STEP 1/3] Parsing document...")
     result = parse_document(file_path)
     
     print(f"\n✓ Parsing complete:")
+    print(f"  - Filename: {result['metadata']['filename']}")
     print(f"  - Text: {len(result['text'])} characters")
     print(f"  - Images: {result['images_found']}")
     print(f"  - Tables: {result['tables_found']}")
     
-    # Step 2: Chunk text
-    print("\n[STEP 2/3] Chunking text...")
-    from chunking import chunk_text
+    # Show preview
+    print(f"\n📝 Text preview (first 500 chars):")
+    print("-" * 40)
+    print(result['text'][:500])
+    print("-" * 40)
     
-    chunks = chunk_text(
-        result['text'],
-        similarity_threshold=0.7,
-        min_tokens=100,
-        max_tokens=500,
-        group_size=2
-    )
-    
-    print(f"\n✓ Created {len(chunks)} semantic chunks")
-    
-    # Step 3: Store in ChromaDB
-    print("\n[STEP 3/3] Storing in ChromaDB...")
-    from storage import store_chunks, get_collection_stats
-    
-    document_id = Path(file_path).stem
-    
-    chunk_ids = store_chunks(
-        chunks=chunks,
-        document_id=document_id,
-        collection_name="raptor_chunks",
-        layer=0
-    )
-    
-    # Final summary
-    print("\n" + "="*60)
-    print("✅ PROCESSING COMPLETE")
-    print("="*60)
-    print(f"Document: {result['metadata']['filename']}")
-    print(f"Chunks stored: {len(chunk_ids)}")
-    
-    stats = get_collection_stats()
-    print(f"\n📊 Database Statistics:")
-    print(f"  Total chunks: {stats['total_chunks']}")
-    print(f"  Documents: {len(stats['documents'])}")
-    print(f"  Chunks with images: {stats['content_types']['image']}")
-    print(f"  Chunks with tables: {stats['content_types']['table']}")
-    print("="*60)
-
+    print("\n💡 To process and store this document, run:")
+    print(f"   python main.py upload {file_path}")

@@ -1,13 +1,11 @@
 """
-Embedding service using Google Gemini
-"""
-from google import genai
-from google.genai import types
-from typing import List
-import config
+Embedding service for Nexus
 
-# Configure Gemini client
-client = genai.Client(api_key=config.GEMINI_API_KEY)
+Uses the centralized Gemini client for generating text embeddings.
+"""
+from typing import List
+from gemini_client import get_embedding as _get_embedding, get_embeddings as _get_embeddings
+
 
 def get_embeddings(texts: List[str]) -> List[List[float]]:
     """
@@ -19,16 +17,7 @@ def get_embeddings(texts: List[str]) -> List[List[float]]:
     Returns:
         List of embedding vectors
     """
-    embeddings = []
-    
-    for text in texts:
-        response = client.models.embed_content(
-            model=config.GEMINI_EMBEDDING_MODEL,
-            contents=text
-        )
-        embeddings.append(response.embeddings[0].values)
-    
-    return embeddings
+    return _get_embeddings(texts)
 
 
 def get_embedding(text: str) -> List[float]:
@@ -41,7 +30,7 @@ def get_embedding(text: str) -> List[float]:
     Returns:
         Embedding vector
     """
-    return get_embeddings([text])[0]
+    return _get_embedding(text)
 
 
 # Test
