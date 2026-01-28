@@ -38,5 +38,5 @@ if __name__ == "__main__":
     print("Testing Gemini embeddings...")
     test_text = "This is a test document about artificial intelligence."
     embedding = get_embedding(test_text)
-    print(f"✓ Generated embedding with dimension: {len(embedding)}")
-    print(f"✓ First 5 values: {embedding[:5]}")
+    print(f"[OK] Generated embedding with dimension: {len(embedding)}")
+    print(f"[OK] First 5 values: {embedding[:5]}")

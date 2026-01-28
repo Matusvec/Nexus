@@ -33,14 +33,14 @@ def cmd_upload(args):
     file_path = args.file
     
     print("=" * 60)
-    print("📥 NEXUS DOCUMENT UPLOAD (Contextual Retrieval)")
+    print("NEXUS DOCUMENT UPLOAD (Contextual Retrieval)")
     print("=" * 60)
     
     # Step 1: Parse document
     print("\n[STEP 1/4] Parsing document...")
     result = parse_document(file_path)
     
-    print(f"\n✓ Parsing complete:")
+    print(f"\n[OK] Parsing complete:")
     print(f"  - Text: {len(result['text'])} characters")
     print(f"  - Images: {result['images_found']}")
     print(f"  - Tables: {result['tables_found']}")
@@ -86,7 +86,7 @@ def cmd_upload(args):
     
     # Final summary
     print("\n" + "=" * 60)
-    print("✅ UPLOAD COMPLETE")
+    print("UPLOAD COMPLETE")
     print("=" * 60)
     print(f"Document: {result['metadata']['filename']}")
     print(f"Chunks stored: {len(chunk_ids)}")
@@ -94,18 +94,18 @@ def cmd_upload(args):
     # Warn if too few chunks for optimal tree building
     from t_retriever import MIN_NODES_FOR_CLUSTERING
     if len(chunk_ids) < 10:
-        print(f"\n⚠️  WARNING: Only {len(chunk_ids)} chunks created.")
+        print(f"\n[WARN] WARNING: Only {len(chunk_ids)} chunks created.")
         print(f"   T-Retriever tree building works best with 10+ chunks.")
         print(f"   With fewer chunks, clustering may be less optimal.")
         print(f"   Consider uploading a longer document or lowering --max-tokens.")
     print(f"Features used:")
-    print(f"  ✓ Semantic chunking with {args.overlap_tokens}-token overlap")
-    print(f"  ✓ Contextual embeddings (Anthropic's method)")
+    print(f"  [+] Semantic chunking with {args.overlap_tokens}-token overlap")
+    print(f"  [+] Contextual embeddings (Anthropic's method)")
     if args.llm_context:
-        print(f"  ✓ LLM-generated chunk context")
+        print(f"  [+] LLM-generated chunk context")
     
     stats = get_collection_stats()
-    print(f"\n📊 Database Statistics:")
+    print(f"\nDatabase Statistics:")
     print(f"  Total chunks: {stats['total_chunks']}")
     print(f"  Documents: {len(stats['documents'])}")
     print(f"  Chunks with images: {stats['content_types'].get('image', 0)}")
@@ -123,7 +123,7 @@ def cmd_query(args):
     top_k = args.top_k
     
     print("=" * 60)
-    print("🔍 NEXUS QUERY (T-Retriever Hybrid)")
+    print("NEXUS QUERY (T-Retriever Hybrid)")
     print("=" * 60)
     print(f"Question: {question}")
     if doc_id:
@@ -133,11 +133,11 @@ def cmd_query(args):
     # Check if database has content
     stats = get_collection_stats()
     if stats['total_chunks'] == 0:
-        print("❌ Database is empty. Upload a document first:")
+        print("[ERROR] Database is empty. Upload a document first:")
         print("   python main.py upload <file.pdf>")
         return
     
-    print("⏳ Searching and generating answer...\n")
+    print("Searching and generating answer...\n")
     
     result = answer_question(
         question=question,
@@ -147,13 +147,13 @@ def cmd_query(args):
     )
     
     print("=" * 60)
-    print("💡 ANSWER")
+    print("ANSWER")
     print("=" * 60)
     print(result["answer"])
     
     if result["sources"] and args.show_sources:
         print("\n" + "-" * 60)
-        print("📚 SOURCES")
+        print("SOURCES")
         print("-" * 60)
         for i, source in enumerate(result["sources"][:5], 1):
             method = source.get('method', 'tree')
@@ -167,7 +167,7 @@ def cmd_stats(args):
     """Show database statistics"""
     from storage import get_collection_stats, get_or_create_collection
     
-    print("📊 Nexus Database Statistics\n")
+    print("Nexus Database Statistics\n")
     stats = get_collection_stats()
     
     print(f"Total chunks: {stats['total_chunks']}")
@@ -175,7 +175,7 @@ def cmd_stats(args):
     print(f"Layers: {stats['layers']}")
     
     if stats['total_chunks'] == 0:
-        print("\n⚠️  Database is empty. Upload a document with:")
+        print("\n[WARN] Database is empty. Upload a document with:")
         print("   python main.py upload <file.pdf>")
     else:
         print(f"\nContent breakdown:")
@@ -188,14 +188,14 @@ def cmd_stats(args):
             collection = get_or_create_collection()
             for doc in stats['documents']:
                 doc_results = collection.get(where={"document_id": doc})
-                print(f"  • {doc} ({len(doc_results['ids'])} chunks)")
+                print(f"  - {doc} ({len(doc_results['ids'])} chunks)")
 
 
 def cmd_list(args):
     """List all documents"""
     from storage import get_collection_stats, get_or_create_collection
     
-    print("📚 All Documents\n")
+    print("All Documents\n")
     stats = get_collection_stats()
     
     if not stats['documents']:
@@ -217,18 +217,18 @@ def cmd_delete(args):
     check = collection.get(where={"document_id": doc_id})
     
     if not check["ids"]:
-        print(f"❌ Document not found: {doc_id}")
+        print(f"[ERROR] Document not found: {doc_id}")
         return
     
     if not args.force:
-        print(f"⚠️  This will delete {len(check['ids'])} chunks from '{doc_id}'")
+        print(f"[WARN] This will delete {len(check['ids'])} chunks from '{doc_id}'")
         confirm = input("Type 'yes' to confirm: ")
         if confirm.lower() != "yes":
             print("Cancelled.")
             return
     
     delete_document_chunks(doc_id)
-    print(f"✓ Deleted '{doc_id}'")
+    print(f"[OK] Deleted '{doc_id}'")
 
 
 def cmd_view(args):
@@ -244,14 +244,14 @@ def cmd_view(args):
     )
     
     if not results["ids"]:
-        print(f"❌ No chunks found for: {doc_id}")
+        print(f"[ERROR] No chunks found for: {doc_id}")
         print("\nAvailable documents:")
         stats = get_collection_stats()
         for doc in stats['documents']:
             print(f"  - {doc}")
         return
     
-    print(f"📄 Document: {doc_id}")
+    print(f"Document: {doc_id}")
     print(f"Total chunks: {len(results['ids'])}")
     print("=" * 70 + "\n")
     
@@ -265,9 +265,9 @@ def cmd_view(args):
         print(f"  Layer: {meta.get('layer', 0)} | Tokens: {meta.get('token_count', 'N/A')} | Content: {meta.get('content_types', 'text')}")
         
         if meta.get('image_refs'):
-            print(f"  🖼️  Images: {meta['image_refs']}")
+            print(f"  [IMG] Images: {meta['image_refs']}")
         if meta.get('table_refs'):
-            print(f"  📊 Tables: {meta['table_refs']}")
+            print(f"  [TBL] Tables: {meta['table_refs']}")
         
         print(f"\n  Text:")
         preview = doc[:250].replace('\n', '\n  ')
@@ -285,14 +285,14 @@ def cmd_build_tree(args):
     doc_id = args.document if hasattr(args, 'document') and args.document else None
     
     print("=" * 60)
-    print("🌲 T-RETRIEVER TREE BUILDER")
+    print("T-RETRIEVER TREE BUILDER")
     print("=" * 60)
     
     # Get available documents
     stats = get_collection_stats()
     
     if stats['total_chunks'] == 0:
-        print("❌ Database is empty. Upload a document first:")
+        print("[ERROR] Database is empty. Upload a document first:")
         print("   python main.py upload <file.pdf>")
         return
     
@@ -300,7 +300,7 @@ def cmd_build_tree(args):
     if not doc_id:
         if len(stats['documents']) == 1:
             doc_id = stats['documents'][0]
-            print(f"📄 Using document: {doc_id}\n")
+            print(f"Using document: {doc_id}\n")
         else:
             print("Available documents:")
             for i, doc in enumerate(stats['documents'], 1):
@@ -313,7 +313,7 @@ def cmd_build_tree(args):
     
     # Check if document exists
     if doc_id not in stats['documents']:
-        print(f"❌ Document not found: {doc_id}")
+        print(f"[ERROR] Document not found: {doc_id}")
         print("\nAvailable documents:")
         for doc in stats['documents']:
             print(f"  - {doc}")
@@ -322,7 +322,7 @@ def cmd_build_tree(args):
     # Check if tree already exists
     existing_stats = get_tree_stats(doc_id)
     if existing_stats.get('tree_depth', 0) > 1:
-        print(f"⚠️  Tree already exists for '{doc_id}' ({existing_stats['tree_depth']} layers, {existing_stats.get('unique_entities', 0)} entities)")
+        print(f"[WARN] Tree already exists for '{doc_id}' ({existing_stats['tree_depth']} layers, {existing_stats.get('unique_entities', 0)} entities)")
         if args.rebuild:
             print("   Rebuilding tree...\n")
             rebuild_tree(doc_id)
@@ -421,7 +421,7 @@ Examples:
     
     if not args.command:
         parser.print_help()
-        print("\n💡 Quick start:")
+        print("\n[TIP] Quick start:")
         print("   python main.py upload your_document.pdf")
         print("   python main.py stats")
         return

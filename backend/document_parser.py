@@ -41,7 +41,7 @@ def parse_document(file_path: str) -> Dict[str, any]:
         for ext in ['.pdf', '.docx', '.doc']:
             test_path = file_path.with_suffix(ext)
             if test_path.exists():
-                print(f"📌 Auto-detected file: {test_path.name}")
+                print(f"[INFO] Auto-detected file: {test_path.name}")
                 file_path = test_path
                 file_ext = ext
                 break
@@ -72,7 +72,7 @@ def parse_pdf(file_path: Path) -> Dict[str, any]:
     Returns:
         Dict with text, metadata, image count, and table count
     """
-    print(f"📄 Parsing PDF: {file_path.name}")
+    print(f"Parsing PDF: {file_path.name}")
     
     reader = PdfReader(str(file_path))
     text_parts = []
@@ -84,6 +84,13 @@ def parse_pdf(file_path: Path) -> Dict[str, any]:
     # Extract full document text for table context
     full_doc_text = "\n".join([page.extract_text() or "" for page in reader.pages])
     
+    # Import config for image processing settings
+    try:
+        from config import PROCESS_IMAGES, MIN_IMAGE_SIZE_BYTES
+    except ImportError:
+        PROCESS_IMAGES = False
+        MIN_IMAGE_SIZE_BYTES = 5000
+    
     # Progress bar for pages
     for page_num, page in enumerate(tqdm(reader.pages, desc="Processing pages", unit="page"), 1):
         # Extract text from this page
@@ -93,51 +100,49 @@ def parse_pdf(file_path: Path) -> Dict[str, any]:
         if page_text:
             text_parts.append(f"--- Page {page_num} ---\n{page_text}")
         
-        # Extract and describe images with surrounding context
-        if hasattr(page, 'images') and page.images:
-            # Progress bar for images on this page
-            for img_idx, image in enumerate(tqdm(page.images, desc=f"  Page {page_num} images", unit="img", leave=False)):
+        # Extract and describe images (only if enabled - industry standard is to skip)
+        if PROCESS_IMAGES and hasattr(page, 'images') and page.images:
+            # Filter out tiny images (icons, artifacts, blank rectangles)
+            meaningful_images = [
+                img for img in page.images 
+                if len(img.data) >= MIN_IMAGE_SIZE_BYTES
+            ]
+            
+            if meaningful_images:
+                skipped = len(page.images) - len(meaningful_images)
+                if skipped > 0:
+                    tqdm.write(f"    [SKIP] Skipping {skipped} tiny/artifact images on page {page_num}")
+            
+            for img_idx, image in enumerate(meaningful_images):
                 try:
-                    # Get image data
                     image_data = image.data
-                    
-                    # Get context: text before and after image
                     context_before = page_text[-500:] if page_text else ""
-                    context_after = ""
                     
-                    # Check if this image might be a table (use Gemini Vision to detect)
+                    # Check if this image might be a table
                     is_table, table_data = detect_and_extract_table_from_image(image_data)
                     
                     if is_table and table_data:
-                        # This is a table - process as table
                         table_ref = f"table_{file_path.stem}_p{page_num}_{tables_processed}"
                         table_references.append(table_ref)
-                        
-                        # Describe and format table
                         table_description = describe_and_format_table(
-                            table_data,
-                            table_ref,
-                            context=full_doc_text[-2000:]  # Last 2000 chars of doc
+                            table_data, table_ref, context=full_doc_text[-2000:]
                         )
-                        
                         text_parts.append(f"\n{table_description}\n")
                         tables_processed += 1
                     else:
-                        # Regular image - process as image
                         img_ref = f"img_{file_path.stem}_p{page_num}_{img_idx}"
                         image_references.append(img_ref)
-                        
                         description = describe_image_with_context(
-                            image_data, 
-                            img_ref,
-                            context_before=context_before
+                            image_data, img_ref, context_before=context_before
                         )
-                        
                         text_parts.append(f"\n[IMAGE {img_ref}: {description}]\n")
                         images_processed += 1
                     
                 except Exception as e:
-                    tqdm.write(f"    ⚠️  Could not process image {img_idx}: {e}")
+                    tqdm.write(f"    [WARN] Could not process image {img_idx}: {e}")
+        elif hasattr(page, 'images') and page.images and not PROCESS_IMAGES:
+            # Just count images but don't process (fast mode)
+            images_processed += len(page.images)
     
     full_text = "\n\n".join(text_parts)
     
@@ -172,7 +177,7 @@ def parse_docx(file_path: Path) -> Dict[str, any]:
     Returns:
         Dict with text, metadata, image count, and table count
     """
-    print(f"📄 Parsing DOCX: {file_path.name}")
+    print(f"Parsing DOCX: {file_path.name}")
     
     doc = Document(str(file_path))
     text_parts = []
@@ -207,7 +212,7 @@ def parse_docx(file_path: Path) -> Dict[str, any]:
                 tables_processed += 1
                 
             except Exception as e:
-                tqdm.write(f"    ⚠️  Could not process table {table_idx}: {e}")
+                tqdm.write(f"    [WARN] Could not process table {table_idx}: {e}")
     
     # Progress bar for paragraphs
     for para_idx, paragraph in enumerate(tqdm(doc.paragraphs, desc="Processing paragraphs", unit="para")):
@@ -246,7 +251,7 @@ def parse_docx(file_path: Path) -> Dict[str, any]:
                     images_processed += 1
                     
                 except Exception as e:
-                    tqdm.write(f"    ⚠️  Could not process image: {e}")
+                    tqdm.write(f"    [WARN] Could not process image: {e}")
     
     full_text = "\n\n".join(text_parts)
     
@@ -283,7 +288,7 @@ def describe_image_with_context(image_data: bytes, image_id: str, context_before
         Context-aware text description of the image
     """
     # Use tqdm.write to print without interfering with progress bars
-    tqdm.write(f"    🖼️  Describing {image_id}...")
+    tqdm.write(f"    [IMG] Describing {image_id}...")
     
     try:
         # Build context-aware prompt
@@ -308,11 +313,11 @@ def describe_image_with_context(image_data: bytes, image_id: str, context_before
         
         # Use centralized Gemini client
         description = generate_with_image(image_data, prompt)
-        tqdm.write(f"      ✓ {description[:60]}...")
+        tqdm.write(f"      [OK] {description[:60]}...")
         return description
         
     except Exception as e:
-        tqdm.write(f"      ⚠️  Vision API error: {e}")
+        tqdm.write(f"      [WARN] Vision API error: {e}")
         return f"Image {image_id} (description unavailable)"
 
 
@@ -368,7 +373,7 @@ def extract_image_from_run(run, document) -> bytes:
         return image_part.blob
         
     except Exception as e:
-        tqdm.write(f"      ⚠️  Image extraction error: {e}")
+        tqdm.write(f"      [WARN] Image extraction error: {e}")
         return None
 
 
@@ -382,7 +387,7 @@ def detect_and_extract_table_from_image(image_data: bytes) -> Tuple[bool, List[L
     Returns:
         Tuple of (is_table: bool, table_data: List[List[str]])
     """
-    tqdm.write(f"    📊 Checking if image contains table...")
+    tqdm.write(f"    [TABLE] Checking if image contains table...")
     
     try:
         prompt = (
@@ -396,13 +401,13 @@ def detect_and_extract_table_from_image(image_data: bytes) -> Tuple[bool, List[L
         if result.upper().startswith('YES'):
             # Extract table data (simplified - assumes CSV format in response)
             # In practice, might need more sophisticated parsing
-            tqdm.write(f"      ✓ Table detected in image")
+            tqdm.write(f"      [OK] Table detected in image")
             return True, []  # Return empty for now, will be processed by describe_and_format_table
         else:
             return False, []
             
     except Exception as e:
-        tqdm.write(f"      ⚠️  Table detection error: {e}")
+        tqdm.write(f"      [WARN] Table detection error: {e}")
         return False, []
 
 
@@ -423,7 +428,7 @@ def describe_and_format_table(table_data: List[List[str]], table_id: str, contex
     Returns:
         Formatted string with: [TABLE table_id: description]\n\n<markdown table>
     """
-    tqdm.write(f"    📊 Describing and formatting {table_id}...")
+    tqdm.write(f"    [TABLE] Describing and formatting {table_id}...")
     
     try:
         # Convert table data to simple text format for prompt
@@ -465,11 +470,11 @@ MARKDOWN:
         # Format as table chunk: [TABLE id: description]\n\nmarkdown
         table_chunk = f"[TABLE {table_id}: {description}]\n\n{markdown_table}"
         
-        tqdm.write(f"      ✓ Table processed: {description[:50]}...")
+        tqdm.write(f"      [OK] Table processed: {description[:50]}...")
         return table_chunk
         
     except Exception as e:
-        tqdm.write(f"      ⚠️  Table processing error: {e}")
+        tqdm.write(f"      [WARN] Table processing error: {e}")
         # Fallback: basic markdown conversion
         markdown_table = "| " + " | ".join(table_data[0]) + " |\n"
         markdown_table += "| " + " | ".join(["---"] * len(table_data[0])) + " |\n"
@@ -495,22 +500,22 @@ if __name__ == "__main__":
     file_path = sys.argv[1]
     
     print("="*60)
-    print("📄 DOCUMENT PARSING")
+    print("DOCUMENT PARSING")
     print("="*60)
     
     result = parse_document(file_path)
     
-    print(f"\n✓ Parsing complete:")
+    print(f"\n[OK] Parsing complete:")
     print(f"  - Filename: {result['metadata']['filename']}")
     print(f"  - Text: {len(result['text'])} characters")
     print(f"  - Images: {result['images_found']}")
     print(f"  - Tables: {result['tables_found']}")
     
     # Show preview
-    print(f"\n📝 Text preview (first 500 chars):")
+    print(f"\n[TEXT] Text preview (first 500 chars):")
     print("-" * 40)
     print(result['text'][:500])
     print("-" * 40)
     
-    print("\n💡 To process and store this document, run:")
+    print("\n[TIP] To process and store this document, run:")
     print(f"   python main.py upload {file_path}")

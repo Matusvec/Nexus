@@ -68,9 +68,27 @@ HYBRID_ALPHA = 0.6              # Weight for tree vs graph (0.6 = 60% tree)
 # ENTITY EXTRACTION MODULE
 # ============================================================================
 
+def extract_entities(text: str, max_entities: int = MAX_ENTITIES_PER_CHUNK) -> List[Dict]:
+    """
+    Extract entities using configured mode (fast or LLM)
+    
+    Industry standard: Use fast extraction (spaCy/rules) by default.
+    LLM extraction is 1000x slower and not necessary for good RAG performance.
+    """
+    try:
+        from config import ENTITY_EXTRACTION_MODE
+    except ImportError:
+        ENTITY_EXTRACTION_MODE = "fast"
+    
+    if ENTITY_EXTRACTION_MODE == "llm":
+        return extract_entities_llm(text, max_entities)
+    else:
+        return extract_entities_simple(text, max_entities)
+
+
 def extract_entities_llm(text: str, max_entities: int = MAX_ENTITIES_PER_CHUNK) -> List[Dict]:
     """
-    Extract entities from text using LLM
+    Extract entities from text using LLM (SLOW - use only if needed)
     
     Returns list of entities with:
     - name: Entity name
@@ -122,7 +140,7 @@ Return ONLY valid JSON array, no other text:"""
         return valid_entities
         
     except Exception as ex:
-        print(f"   ⚠️ Entity extraction failed: {ex}")
+        print(f"   [WARN] Entity extraction failed: {ex}")
         return extract_entities_simple(text)
 
 
@@ -313,7 +331,7 @@ class EntityGraph:
         
         # Count edges
         total_edges = sum(len(neighbors) for neighbors in self.edges.values()) // 2
-        print(f"   ✓ Built {total_edges} edges")
+        print(f"   [OK] Built {total_edges} edges")
     
     def get_neighbors(self, chunk_id: str, top_k: int = GRAPH_EXPANSION_TOP_K) -> List[Tuple[str, float]]:
         """Get top-k neighbors sorted by edge weight"""
@@ -427,7 +445,7 @@ def save_document_graph(document_id: str, collection_name: str = "raptor_chunks"
                 embeddings=[[0.0] * 768]  # Dummy embedding
             )
     except Exception as e:
-        print(f"   ⚠️ Failed to save graph: {e}")
+        print(f"   [WARN] Failed to save graph: {e}")
 
 
 def load_document_graph(document_id: str, collection_name: str = "raptor_chunks") -> EntityGraph:
@@ -467,7 +485,7 @@ def cluster_with_entities(
         import igraph as ig
         import leidenalg
     except ImportError:
-        print("   ⚠️ Leiden not available, using GMM fallback")
+        print("   [WARN] Leiden not available, using GMM fallback")
         return cluster_embeddings_gmm(embeddings)
     
     n_samples = embeddings.shape[0]
@@ -641,7 +659,7 @@ Provide a clear, comprehensive summary (2-4 paragraphs):"""
     try:
         summary = generate_content(prompt)
     except Exception as e:
-        print(f"   ⚠️ Summarization failed: {e}")
+        print(f"   [WARN] Summarization failed: {e}")
         summary = " ".join([t.split('.')[0] + '.' for t in texts[:3]])
     
     # Clean up aggregated entities
@@ -780,8 +798,8 @@ def build_layer_tretriever(
     
     Entity-aware clustering + entity-preserving summarization
     """
-    print(f"\n🔨 Building layer {current_layer + 1} from layer {current_layer}...")
-    
+    print(f"\n[BUILD] Building layer {current_layer + 1} from layer {current_layer}...")
+
     # Get chunks at current layer
     chunk_ids, texts, metadatas, embeddings, entities_list = get_layer_chunks_with_entities(
         document_id, current_layer, collection_name
@@ -798,7 +816,7 @@ def build_layer_tretriever(
         return 0, []
     
     # Convert embeddings
-    if not embeddings:
+    if embeddings is None or len(embeddings) == 0:
         print(f"   Fetching embeddings...")
         collection = get_or_create_collection(collection_name)
         results = collection.get(ids=chunk_ids, include=["embeddings"])
@@ -844,7 +862,7 @@ def build_layer_tretriever(
         summaries, document_id, current_layer + 1, collection_name
     )
     
-    print(f"   ✓ Created {len(summary_ids)} summaries at layer {current_layer + 1}")
+    print(f"   [OK] Created {len(summary_ids)} summaries at layer {current_layer + 1}")
     
     return len(summary_ids), summary_ids
 
@@ -874,7 +892,7 @@ def build_tretriever_tree(
         Dict with tree statistics
     """
     print("=" * 60)
-    print(f"🌲 BUILDING T-RETRIEVER TREE: {document_id}")
+    print(f"BUILDING T-RETRIEVER TREE: {document_id}")
     print("=" * 60)
     
     stats = {
@@ -891,16 +909,16 @@ def build_tretriever_tree(
     )
     
     if not chunk_ids:
-        print(f"❌ No base chunks found for document: {document_id}")
+        print(f"[ERROR] No base chunks found for document: {document_id}")
         return stats
     
     # Check if entities already extracted
     has_entities = any(len(e) > 0 for e in entities_list)
     
     if not has_entities:
-        print(f"\n📋 Extracting entities from {len(chunk_ids)} base chunks...")
+        print(f"\nExtracting entities from {len(chunk_ids)} base chunks (fast mode)...")
         
-        # Extract entities for base chunks
+        # Extract entities for base chunks using configured mode
         collection = get_or_create_collection(collection_name)
         
         for i, (cid, text, meta) in enumerate(tqdm(
@@ -908,7 +926,7 @@ def build_tretriever_tree(
             desc="   Extracting entities",
             total=len(chunk_ids)
         )):
-            entities = extract_entities_llm(text)
+            entities = extract_entities(text)  # Uses fast mode by default
             entities_list[i] = entities
             
             # Update metadata in ChromaDB
@@ -921,11 +939,11 @@ def build_tretriever_tree(
             )
     
     # Build entity graph from base chunks
-    print(f"\n🔗 Building entity graph...")
+    print(f"\nBuilding entity graph...")
     graph = get_document_graph(document_id)
     
     # Get embeddings if needed
-    if not embeddings:
+    if embeddings is None or len(embeddings) == 0:
         collection = get_or_create_collection(collection_name)
         results = collection.get(ids=chunk_ids, include=["embeddings"])
         embeddings = results["embeddings"]
@@ -947,7 +965,7 @@ def build_tretriever_tree(
     stats["layers"][0] = len(chunk_ids)
     stats["total_nodes"] = len(chunk_ids)
     
-    print(f"\n📊 Base layer: {len(chunk_ids)} chunks, {stats['total_entities']} unique entities")
+    print(f"\nBase layer: {len(chunk_ids)} chunks, {stats['total_entities']} unique entities")
     
     # Build tree layers
     current_layer = 0
@@ -974,7 +992,7 @@ def build_tretriever_tree(
     
     # Print summary
     print("\n" + "=" * 60)
-    print("✅ T-RETRIEVER TREE COMPLETE")
+    print("T-RETRIEVER TREE COMPLETE")
     print("=" * 60)
     print(f"Document: {document_id}")
     print(f"Tree depth: {stats['tree_depth']} layers")
@@ -1011,7 +1029,7 @@ def delete_tree_layers(
         return 0
     
     collection.delete(ids=results["ids"])
-    print(f"🗑️ Deleted {len(results['ids'])} summary chunks (layer >= {min_layer})")
+    print(f"[DEL] Deleted {len(results['ids'])} summary chunks (layer >= {min_layer})")
     
     return len(results["ids"])
 
@@ -1021,7 +1039,7 @@ def rebuild_tree(
     collection_name: str = "raptor_chunks"
 ) -> Dict:
     """Rebuild T-Retriever tree"""
-    print(f"♻️ Rebuilding T-Retriever tree for: {document_id}")
+    print(f"[REBUILD] Rebuilding T-Retriever tree for: {document_id}")
     
     delete_tree_layers(document_id, min_layer=1, collection_name=collection_name)
     
@@ -1107,7 +1125,7 @@ if __name__ == "__main__":
         doc_id = sys.argv[2]
         stats = get_tree_stats(doc_id)
         if stats.get("exists"):
-            print(f"\n📊 T-Retriever Tree Stats: {doc_id}")
+            print(f"\nT-Retriever Tree Stats: {doc_id}")
             print(f"   Total nodes: {stats['total_nodes']}")
             print(f"   Tree depth: {stats['tree_depth']} layers")
             print(f"   Unique entities: {stats['unique_entities']}")
@@ -1115,7 +1133,7 @@ if __name__ == "__main__":
             for layer, count in sorted(stats["layers"].items()):
                 print(f"   Layer {layer}: {count} nodes")
         else:
-            print(f"❌ No tree found for: {doc_id}")
+            print(f"[ERROR] No tree found for: {doc_id}")
             
     elif command == "delete" and len(sys.argv) >= 3:
         doc_id = sys.argv[2]

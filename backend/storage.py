@@ -30,7 +30,7 @@ def get_or_create_collection(collection_name: str = "raptor_chunks"):
     Returns:
         ChromaDB collection object
     """
-    print(f"📦 Initializing collection: {collection_name}")
+    print(f"[INIT] Initializing collection: {collection_name}")
     
     # Create or get collection
     collection = client.get_or_create_collection(
@@ -65,7 +65,7 @@ def store_chunks(
     Returns:
         List of chunk IDs
     """
-    print(f"\n💾 Storing {len(chunks)} chunks in ChromaDB...")
+    print(f"\n[STORE] Storing {len(chunks)} chunks in ChromaDB...")
     print(f"   Document: {document_id}")
     print(f"   Layer: {layer}")
     
@@ -121,7 +121,7 @@ def store_chunks(
         metadatas=chunk_metadatas
     )
     
-    print(f"   ✓ Stored {len(chunk_ids)} chunks successfully")
+    print(f"   [OK] Stored {len(chunk_ids)} chunks successfully")
     return chunk_ids
 
 
@@ -150,7 +150,7 @@ def store_contextualized_chunks(
     Returns:
         List of chunk IDs
     """
-    print(f"\n💾 Storing {len(chunks)} contextualized chunks in ChromaDB...")
+    print(f"\n[STORE] Storing {len(chunks)} contextualized chunks in ChromaDB...")
     print(f"   Document: {document_id}")
     print(f"   Layer: {layer}")
     print(f"   Using: Contextual Embeddings (Anthropic's method)")
@@ -217,7 +217,7 @@ def store_contextualized_chunks(
         metadatas=chunk_metadatas
     )
     
-    print(f"   ✓ Stored {len(chunk_ids)} chunks with contextual embeddings")
+    print(f"   [OK] Stored {len(chunk_ids)} chunks with contextual embeddings")
     return chunk_ids
 
 
@@ -312,9 +312,9 @@ def delete_document_chunks(document_id: str, collection_name: str = "raptor_chun
     )
     
     if results["ids"]:
-        print(f"🗑️  Deleting {len(results['ids'])} chunks for document: {document_id}")
+        print(f"[DEL] Deleting {len(results['ids'])} chunks for document: {document_id}")
         collection.delete(ids=results["ids"])
-        print(f"   ✓ Deleted successfully")
+        print(f"   [OK] Deleted successfully")
     else:
         print(f"   No chunks found for document: {document_id}")
 
@@ -384,14 +384,14 @@ if __name__ == "__main__":
     command = sys.argv[1].lower()
     
     if command == "stats":
-        print("📊 ChromaDB Statistics\n")
+        print("ChromaDB Statistics\n")
         stats = get_collection_stats()
         print(f"Total chunks: {stats['total_chunks']}")
         print(f"Documents: {len(stats['documents'])}")
         print(f"Layers: {stats['layers']}")
         
         if stats['total_chunks'] == 0:
-            print("\n⚠️  Database is empty. Upload a document to see content breakdown.")
+            print("\n[WARN] Database is empty. Upload a document to see content breakdown.")
         else:
             print(f"\nContent breakdown:")
             print(f"  Text chunks: {stats['content_types'].get('text', 0)}")
@@ -404,10 +404,10 @@ if __name__ == "__main__":
                     # Count chunks per document
                     collection = get_or_create_collection()
                     doc_results = collection.get(where={"document_id": doc})
-                    print(f"  • {doc} ({len(doc_results['ids'])} chunks)")
+                    print(f"  - {doc} ({len(doc_results['ids'])} chunks)")
     
     elif command == "list":
-        print("📚 All Documents\n")
+        print("All Documents\n")
         stats = get_collection_stats()
         if not stats['documents']:
             print("Database is empty. Upload a document with:")
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     
     elif command == "view":
         if len(sys.argv) < 3:
-            print("❌ Error: Please specify document ID")
+            print("[ERROR] Error: Please specify document ID")
             print("Usage: python storage.py view <doc_id>")
             print("\nAvailable documents:")
             stats = get_collection_stats()
@@ -437,13 +437,13 @@ if __name__ == "__main__":
         )
         
         if not results["ids"]:
-            print(f"❌ No chunks found for: {doc_id}")
+            print(f"[ERROR] No chunks found for: {doc_id}")
             print("\nAvailable documents:")
             stats = get_collection_stats()
             for doc in stats['documents']:
                 print(f"  - {doc}")
         else:
-            print(f"📄 Document: {doc_id}")
+            print(f"Document: {doc_id}")
             print(f"Total chunks: {len(results['ids'])}")
             print("="*70 + "\n")
             
@@ -452,9 +452,9 @@ if __name__ == "__main__":
                 print(f"  Layer: {meta.get('layer', 0)} | Tokens: {meta.get('token_count', 'N/A')} | Content: {meta.get('content_types', 'text')}")
                 
                 if meta.get('image_refs'):
-                    print(f"  🖼️  Images: {meta['image_refs']}")
+                    print(f"  [IMG] Images: {meta['image_refs']}")
                 if meta.get('table_refs'):
-                    print(f"  📊 Tables: {meta['table_refs']}")
+                    print(f"  [TBL] Tables: {meta['table_refs']}")
                 
                 print(f"\n  Text:")
                 # Show first 250 chars
@@ -466,7 +466,7 @@ if __name__ == "__main__":
     
     elif command == "delete":
         if len(sys.argv) < 3:
-            print("❌ Error: Please specify document ID")
+            print("[ERROR] Error: Please specify document ID")
             print("Usage: python storage.py delete <doc_id>")
             sys.exit(1)
         
@@ -475,17 +475,17 @@ if __name__ == "__main__":
         check = collection.get(where={"document_id": doc_id})
         
         if not check["ids"]:
-            print(f"❌ Document not found: {doc_id}")
+            print(f"[ERROR] Document not found: {doc_id}")
         else:
-            print(f"⚠️  This will delete {len(check['ids'])} chunks from '{doc_id}'")
+            print(f"[WARN] This will delete {len(check['ids'])} chunks from '{doc_id}'")
             confirm = input("Type 'yes' to confirm: ")
             
             if confirm.lower() == "yes":
                 delete_document_chunks(doc_id)
-                print(f"✓ Deleted '{doc_id}'")
+                print(f"[OK] Deleted '{doc_id}'")
             else:
                 print("Cancelled.")
     
     else:
-        print(f"❌ Unknown command: {command}")
+        print(f"[ERROR] Unknown command: {command}")
         print("Run 'python storage.py' for help.")

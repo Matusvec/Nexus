@@ -27,9 +27,17 @@ RAPTOR_CHUNK_OVERLAP = int(os.getenv("RAPTOR_CHUNK_OVERLAP", "50"))
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
+# Document Processing (Production Settings)
+# Skip tiny images (icons, artifacts) - most PDFs have junk images
+MIN_IMAGE_SIZE_BYTES = int(os.getenv("MIN_IMAGE_SIZE_BYTES", "5000"))  # 5KB minimum
+PROCESS_IMAGES = os.getenv("PROCESS_IMAGES", "false").lower() == "true"  # Disabled by default
+
+# Entity Extraction Mode: "llm" (slow but accurate) or "fast" (spaCy/rules, 1000x faster)
+ENTITY_EXTRACTION_MODE = os.getenv("ENTITY_EXTRACTION_MODE", "fast")
+
 # Gemini Models
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
-GEMINI_GENERATION_MODEL = "gemini-2.0-flash-exp"
+GEMINI_GENERATION_MODEL = "gemini-2.5-flash"
 
-print(f"✓ Config loaded: ChromaDB at {CHROMA_PERSIST_DIR}")
-print(f"✓ RAPTOR: {RAPTOR_MAX_LAYERS} layers, chunk size {RAPTOR_CHUNK_SIZE}")
+print(f"[OK] Config loaded: ChromaDB at {CHROMA_PERSIST_DIR}")
+print(f"[OK] RAPTOR: {RAPTOR_MAX_LAYERS} layers, chunk size {RAPTOR_CHUNK_SIZE}")

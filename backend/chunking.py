@@ -303,11 +303,11 @@ if __name__ == "__main__":
         max_tokens=200
     )
     
-    print(f"\n✓ Created {len(chunks)} semantic chunks")
+    print(f"\n[OK] Created {len(chunks)} semantic chunks")
     for i, chunk in enumerate(chunks):
         tokens = count_tokens(chunk)
         print(f"\n--- Chunk {i+1} ({tokens} tokens, {len(chunk)} chars) ---")
         print(chunk[:200] + ("..." if len(chunk) > 200 else ""))
     
-    print("\n✓ Semantic chunking complete!")
-    print(f"✓ Token tracking: min 50, max 200 tokens per chunk")
+    print("\n[OK] Semantic chunking complete!")
+    print(f"[OK] Token tracking: min 50, max 200 tokens per chunk")

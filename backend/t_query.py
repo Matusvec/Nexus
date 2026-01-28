@@ -880,7 +880,7 @@ def layer_specific_retrieval(
 
 def interactive_query(collection_name: str = "raptor_chunks"):
     """Interactive query mode for testing"""
-    print("\n🔍 T-Retriever Interactive Query")
+    print("\nT-Retriever Interactive Query")
     print("=" * 50)
     print("Commands:")
     print("  quit/exit - Exit interactive mode")
@@ -896,7 +896,7 @@ def interactive_query(collection_name: str = "raptor_chunks"):
     
     while True:
         try:
-            query = input("\n❓ Query: ").strip()
+            query = input("\nQuery: ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nExiting...")
             break
@@ -909,27 +909,27 @@ def interactive_query(collection_name: str = "raptor_chunks"):
         
         if query.startswith("doc:"):
             document_filter = query[4:].strip()
-            print(f"📄 Filtering to document: {document_filter}")
+            print(f"Filtering to document: {document_filter}")
             continue
         
         if query.startswith("layer:"):
             layer_filter = int(query[6:].strip())
-            print(f"📊 Filtering to layer: {layer_filter}")
+            print(f"Filtering to layer: {layer_filter}")
             continue
         
         if query.startswith("graph:"):
             use_graph = query[6:].strip().lower() == "on"
-            print(f"🔗 Graph expansion: {'ON' if use_graph else 'OFF'}")
+            print(f"Graph expansion: {'ON' if use_graph else 'OFF'}")
             continue
         
         if query.lower() == "clear":
             document_filter = None
             layer_filter = None
-            print("🔄 Filters cleared")
+            print("Filters cleared")
             continue
         
         # Execute query
-        print("\n⏳ Searching...")
+        print("\nSearching...")
         
         if layer_filter is not None:
             results = layer_specific_retrieval(
@@ -945,14 +945,14 @@ def interactive_query(collection_name: str = "raptor_chunks"):
             )
         
         if not results:
-            print("❌ No results found")
+            print("[ERROR] No results found")
             continue
         
-        print(f"\n✅ Found {len(results)} results:\n")
+        print(f"\n[OK] Found {len(results)} results:\n")
         for i, r in enumerate(results):
             layer = r.get("layer", 0)
             source = r.get("source", "tree")
-            icon = "📝" if r.get("is_summary") else "📄"
+            icon = "[S]" if r.get("is_summary") else "[C]"
             print(f"{i+1}. {icon} Layer {layer} | Source: {source} | dist: {r.get('distance', 'N/A'):.3f}")
             print(f"   {r['text'][:200]}...")
             print()
@@ -980,19 +980,19 @@ if __name__ == "__main__":
         question = sys.argv[2]
         doc_id = sys.argv[3] if len(sys.argv) >= 4 else None
         
-        print(f"\n❓ Question: {question}")
+        print(f"\nQuestion: {question}")
         if doc_id:
-            print(f"📄 Document: {doc_id}")
-        print("\n⏳ Generating answer...\n")
+            print(f"Document: {doc_id}")
+        print("\nGenerating answer...\n")
         
         result = answer_question(question, document_id=doc_id, verbose=True)
         
         print("=" * 60)
-        print("💡 ANSWER:")
+        print("ANSWER:")
         print("=" * 60)
         print(result["answer"])
         print("\n" + "=" * 60)
-        print("📚 SOURCES:")
+        print("SOURCES:")
         for s in result["sources"][:5]:
             method = s.get("method", "tree")
             print(f"  - {s['id']} ({s['type']}) via {method}")
@@ -1001,7 +1001,7 @@ if __name__ == "__main__":
         query = sys.argv[2]
         doc_id = sys.argv[3] if len(sys.argv) >= 4 else None
         
-        print(f"\n🔍 Searching: {query}")
+        print(f"\nSearching: {query}")
         results = collapsed_tree_retrieval(query, doc_id, top_k=5)
         
         if not results:
@@ -1014,8 +1014,8 @@ if __name__ == "__main__":
         query = sys.argv[2]
         doc_id = sys.argv[3]
         
-        print(f"\n🔍 Hybrid search: {query}")
-        print(f"📄 Document: {doc_id}")
+        print(f"\nHybrid search: {query}")
+        print(f"Document: {doc_id}")
         
         results = hybrid_retrieval(query, doc_id, top_k=5)
         
