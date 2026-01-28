@@ -91,12 +91,12 @@ def cmd_upload(args):
     print(f"Document: {result['metadata']['filename']}")
     print(f"Chunks stored: {len(chunk_ids)}")
     
-    # Warn if too few chunks for optimal RAPTOR tree building
-    from raptor import UMAP_RECOMMENDED_MIN_SAMPLES
-    if len(chunk_ids) < UMAP_RECOMMENDED_MIN_SAMPLES:
+    # Warn if too few chunks for optimal tree building
+    from t_retriever import MIN_NODES_FOR_CLUSTERING
+    if len(chunk_ids) < 10:
         print(f"\n⚠️  WARNING: Only {len(chunk_ids)} chunks created.")
-        print(f"   RAPTOR tree building works best with {UMAP_RECOMMENDED_MIN_SAMPLES}+ chunks.")
-        print(f"   With fewer chunks, UMAP will fall back to PCA (less optimal clustering).")
+        print(f"   T-Retriever tree building works best with 10+ chunks.")
+        print(f"   With fewer chunks, clustering may be less optimal.")
         print(f"   Consider uploading a longer document or lowering --max-tokens.")
     print(f"Features used:")
     print(f"  ✓ Semantic chunking with {args.overlap_tokens}-token overlap")
@@ -114,8 +114,8 @@ def cmd_upload(args):
 
 
 def cmd_query(args):
-    """Query the knowledge base using RAPTOR collapsed tree retrieval"""
-    from query import answer_question, collapsed_tree_retrieval
+    """Query the knowledge base using T-Retriever hybrid retrieval"""
+    from t_query import answer_question, collapsed_tree_retrieval
     from storage import get_collection_stats
     
     question = args.question
@@ -123,7 +123,7 @@ def cmd_query(args):
     top_k = args.top_k
     
     print("=" * 60)
-    print("🔍 NEXUS QUERY (RAPTOR Collapsed Tree)")
+    print("🔍 NEXUS QUERY (T-Retriever Hybrid)")
     print("=" * 60)
     print(f"Question: {question}")
     if doc_id:
@@ -156,7 +156,8 @@ def cmd_query(args):
         print("📚 SOURCES")
         print("-" * 60)
         for i, source in enumerate(result["sources"][:5], 1):
-            print(f"\n{i}. {source['type']} - {source['id']}")
+            method = source.get('method', 'tree')
+            print(f"\n{i}. {source['type']} - {source['id']} (via {method})")
             print(f"   {source['preview'][:150]}...")
     
     print("\n" + "=" * 60)
@@ -277,14 +278,14 @@ def cmd_view(args):
 
 
 def cmd_build_tree(args):
-    """Build RAPTOR hierarchical tree for a document"""
-    from raptor import build_raptor_tree, rebuild_tree, get_tree_stats
+    """Build T-Retriever hierarchical tree for a document"""
+    from t_retriever import build_tretriever_tree, rebuild_tree, get_tree_stats
     from storage import get_collection_stats
     
     doc_id = args.document if hasattr(args, 'document') and args.document else None
     
     print("=" * 60)
-    print("🌲 RAPTOR TREE BUILDER")
+    print("🌲 T-RETRIEVER TREE BUILDER")
     print("=" * 60)
     
     # Get available documents
@@ -305,8 +306,8 @@ def cmd_build_tree(args):
             for i, doc in enumerate(stats['documents'], 1):
                 # Check if tree exists
                 tree_stats = get_tree_stats(doc)
-                tree_status = f"[Tree: {tree_stats['tree_depth']} layers]" if tree_stats.get('tree_depth', 0) > 1 else "[No tree]"
-                print(f"  {i}. {doc} {tree_status}")
+                tree_info = f"[Tree: {tree_stats['tree_depth']} layers, {tree_stats.get('unique_entities', 0)} entities]" if tree_stats.get('tree_depth', 0) > 1 else "[No tree]"
+                print(f"  {i}. {doc} {tree_info}")
             print("\nSpecify document with: python main.py build-tree -d <document_id>")
             return
     
@@ -321,7 +322,7 @@ def cmd_build_tree(args):
     # Check if tree already exists
     existing_stats = get_tree_stats(doc_id)
     if existing_stats.get('tree_depth', 0) > 1:
-        print(f"⚠️  Tree already exists for '{doc_id}' ({existing_stats['tree_depth']} layers)")
+        print(f"⚠️  Tree already exists for '{doc_id}' ({existing_stats['tree_depth']} layers, {existing_stats.get('unique_entities', 0)} entities)")
         if args.rebuild:
             print("   Rebuilding tree...\n")
             rebuild_tree(doc_id)
@@ -331,10 +332,12 @@ def cmd_build_tree(args):
             for layer, count in sorted(existing_stats['layers'].items()):
                 layer_type = "base chunks" if layer == 0 else "summaries"
                 print(f"  Layer {layer}: {count} {layer_type}")
+            print(f"  Unique entities: {existing_stats.get('unique_entities', 0)}")
+            print(f"  Graph edges: {existing_stats.get('graph_edges', 0)}")
         return
     
     # Build the tree
-    build_raptor_tree(doc_id, max_depth=args.max_layers)
+    build_tretriever_tree(doc_id, max_depth=args.max_layers)
 
 
 def main():
@@ -405,7 +408,7 @@ Examples:
     delete_parser.set_defaults(func=cmd_delete)
     
     # Build tree command
-    tree_parser = subparsers.add_parser("build-tree", help="Build RAPTOR hierarchical tree")
+    tree_parser = subparsers.add_parser("build-tree", help="Build T-Retriever hierarchical tree with entity graph")
     tree_parser.add_argument("-d", "--document", help="Document ID to build tree for")
     tree_parser.add_argument("--max-layers", type=int, default=3,
                              help="Maximum tree layers (default: 3)")

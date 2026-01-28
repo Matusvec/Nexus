@@ -12,3 +12,5 @@
 #### Finding the optimal number of clusters using BIC (Bayesian Information Criterion)
 - It answers the question, how many clusters should I use?
 - ![some math and text explaining BIC](image-1.png)
+- The lower the BIC, the better the model is. We try to LOWER BIC
+- Here 
