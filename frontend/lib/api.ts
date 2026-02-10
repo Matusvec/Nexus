@@ -246,3 +246,137 @@ export async function getConversation(id: string): Promise<{
 }> {
   return fetchApi(`/conversations/${id}`);
 }
+
+// ============================================
+// AGENT ENDPOINTS
+// ============================================
+
+import type {
+  AgentInfo,
+  AgentTool,
+  AgentChatResponse,
+  OrchestratorSession,
+  OrchestratorChatResponse,
+} from "./types";
+
+export async function getAgents(): Promise<AgentInfo[]> {
+  return fetchApi<AgentInfo[]>("/agents");
+}
+
+export async function getAgent(agentId: string): Promise<AgentInfo> {
+  return fetchApi<AgentInfo>(`/agents/${agentId}`);
+}
+
+export async function createAgent(config: {
+  name: string;
+  system_prompt: string;
+  description?: string;
+  tools?: string[];
+  temperature?: number;
+  max_iterations?: number;
+}): Promise<AgentInfo> {
+  return fetchApi<AgentInfo>("/agents", {
+    method: "POST",
+    body: JSON.stringify(config),
+  });
+}
+
+export async function updateAgent(
+  agentId: string,
+  updates: Partial<{
+    name: string;
+    system_prompt: string;
+    description: string;
+    tools: string[];
+    temperature: number;
+    max_iterations: number;
+  }>
+): Promise<AgentInfo> {
+  return fetchApi<AgentInfo>(`/agents/${agentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function deleteAgent(agentId: string): Promise<void> {
+  await fetchApi(`/agents/${agentId}`, { method: "DELETE" });
+}
+
+export async function chatWithAgent(
+  agentId: string,
+  message: string,
+  context?: Record<string, unknown>
+): Promise<AgentChatResponse> {
+  return fetchApi<AgentChatResponse>(`/agents/${agentId}/chat`, {
+    method: "POST",
+    body: JSON.stringify({ message, context }),
+  });
+}
+
+export async function clearAgentHistory(agentId: string): Promise<void> {
+  await fetchApi(`/agents/${agentId}/history`, { method: "DELETE" });
+}
+
+export async function getAgentTools(): Promise<AgentTool[]> {
+  return fetchApi<AgentTool[]>("/agents/tools/list");
+}
+
+// ============================================
+// ORCHESTRATOR ENDPOINTS
+// ============================================
+
+export async function createOrchestratorSession(
+  name?: string
+): Promise<OrchestratorSession> {
+  return fetchApi<OrchestratorSession>("/agents/orchestrator/sessions", {
+    method: "POST",
+    body: JSON.stringify({ name: name || "New Session" }),
+  });
+}
+
+export async function getOrchestratorSessions(): Promise<
+  { id: string; name: string; message_count: number; participating_agents: string[]; created_at: number }[]
+> {
+  return fetchApi("/agents/orchestrator/sessions");
+}
+
+export async function getOrchestratorSession(
+  sessionId: string
+): Promise<OrchestratorSession> {
+  return fetchApi<OrchestratorSession>(
+    `/agents/orchestrator/sessions/${sessionId}`
+  );
+}
+
+export async function sendOrchestratorMessage(
+  sessionId: string,
+  message: string,
+  targetAgentId?: string
+): Promise<OrchestratorChatResponse> {
+  return fetchApi<OrchestratorChatResponse>(
+    `/agents/orchestrator/sessions/${sessionId}/chat`,
+    {
+      method: "POST",
+      body: JSON.stringify({ message, target_agent_id: targetAgentId }),
+    }
+  );
+}
+
+export async function sendAgentToAgentMessage(
+  sessionId: string,
+  fromAgentId: string,
+  toAgentId: string,
+  message: string
+): Promise<OrchestratorChatResponse> {
+  return fetchApi<OrchestratorChatResponse>(
+    `/agents/orchestrator/sessions/${sessionId}/agent-chat`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        from_agent_id: fromAgentId,
+        to_agent_id: toAgentId,
+        message,
+      }),
+    }
+  );
+}

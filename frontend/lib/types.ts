@@ -198,3 +198,132 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+// ============================================
+// AGENTIC AI TYPES
+// ============================================
+
+// Agent Roles
+export type AgentRoleType =
+  | "research"
+  | "code"
+  | "web_search"
+  | "document"
+  | "custom"
+  | "orchestrator";
+
+// Agent Tool
+export interface AgentTool {
+  name: string;
+  description: string;
+  parameters: {
+    name: string;
+    type: string;
+    description: string;
+    required: boolean;
+  }[];
+  category: string;
+}
+
+// Agent Configuration
+export interface AgentConfig {
+  name: string;
+  role: AgentRoleType;
+  system_prompt: string;
+  description: string;
+  tools: string[];
+  model: string;
+  temperature: number;
+  max_iterations: number;
+}
+
+// Agent
+export interface AgentInfo {
+  id: string;
+  config: AgentConfig;
+  created_at: number;
+  message_count: number;
+  is_custom?: boolean;
+}
+
+// Agent Chat Response
+export interface AgentChatResponse {
+  agent_id: string;
+  agent_name: string;
+  response: {
+    content: string;
+    tool_calls: {
+      tool: string;
+      args: Record<string, unknown>;
+      result_preview: string;
+      success: boolean;
+    }[];
+    sources: {
+      chunk_id?: string;
+      document_id?: string;
+      layer?: number;
+      score?: number;
+      preview?: string;
+    }[];
+    reasoning: string[];
+    agent_id: string;
+    iterations: number;
+  };
+}
+
+// Orchestrator Session Message
+export interface OrchestratorMessage {
+  id: string;
+  sender: string;
+  sender_name: string;
+  content: string;
+  timestamp: number;
+  message_type: "message" | "tool_result" | "delegation" | "summary";
+  metadata: Record<string, unknown>;
+}
+
+// Orchestrator Session
+export interface OrchestratorSession {
+  id: string;
+  name: string;
+  messages: OrchestratorMessage[];
+  participating_agents: string[];
+  created_at: number;
+}
+
+// Orchestrator Chat Response
+export interface OrchestratorChatResponse {
+  session_id: string;
+  response: {
+    content: string;
+    tool_calls: unknown[];
+    sources: unknown[];
+    reasoning: string[];
+    agent_id: string;
+    iterations: number;
+  };
+  responding_agent: {
+    id: string;
+    name: string;
+    role: string;
+  };
+  participating_agents?: {
+    id: string;
+    name: string;
+    role: string;
+  }[];
+  session_messages: OrchestratorMessage[];
+}
+
+// Agent Role Display Config
+export const AGENT_ROLES: Record<
+  AgentRoleType,
+  { label: string; icon: string; color: string }
+> = {
+  research: { label: "Research", icon: "🔍", color: "#8B5CF6" },
+  code: { label: "Code", icon: "💻", color: "#10B981" },
+  web_search: { label: "Web Search", icon: "🌐", color: "#3B82F6" },
+  document: { label: "Document", icon: "📄", color: "#F59E0B" },
+  custom: { label: "Custom", icon: "⚙️", color: "#EC4899" },
+  orchestrator: { label: "Orchestrator", icon: "🎯", color: "#6366F1" },
+};

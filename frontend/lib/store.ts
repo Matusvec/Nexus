@@ -7,6 +7,8 @@ import type {
   PersonaId,
   CanvasNode,
   CanvasEdge,
+  AgentInfo,
+  OrchestratorMessage,
 } from "@/lib/types";
 
 // ============================================
@@ -174,11 +176,11 @@ interface UIState {
   isUploadModalOpen: boolean;
   isSettingsModalOpen: boolean;
   isSearchOpen: boolean;
-  activeView: "canvas" | "documents" | "chat";
+  activeView: "canvas" | "documents" | "chat" | "agents";
   setUploadModalOpen: (open: boolean) => void;
   setSettingsModalOpen: (open: boolean) => void;
   setSearchOpen: (open: boolean) => void;
-  setActiveView: (view: "canvas" | "documents" | "chat") => void;
+  setActiveView: (view: "canvas" | "documents" | "chat" | "agents") => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -190,4 +192,64 @@ export const useUIStore = create<UIState>((set) => ({
   setSettingsModalOpen: (open) => set({ isSettingsModalOpen: open }),
   setSearchOpen: (open) => set({ isSearchOpen: open }),
   setActiveView: (view) => set({ activeView: view }),
+}));
+
+// ============================================
+// AGENTS STORE
+// ============================================
+interface AgentsState {
+  agents: AgentInfo[];
+  selectedAgentId: string | null;
+  isLoading: boolean;
+
+  // Orchestrator
+  orchestratorSessionId: string | null;
+  orchestratorMessages: OrchestratorMessage[];
+  isCreateAgentOpen: boolean;
+
+  setAgents: (agents: AgentInfo[]) => void;
+  addAgent: (agent: AgentInfo) => void;
+  updateAgentInfo: (id: string, updates: Partial<AgentInfo>) => void;
+  removeAgent: (id: string) => void;
+  selectAgent: (id: string | null) => void;
+  setLoading: (loading: boolean) => void;
+
+  setOrchestratorSessionId: (id: string | null) => void;
+  setOrchestratorMessages: (msgs: OrchestratorMessage[]) => void;
+  addOrchestratorMessage: (msg: OrchestratorMessage) => void;
+  setCreateAgentOpen: (open: boolean) => void;
+}
+
+export const useAgentsStore = create<AgentsState>((set) => ({
+  agents: [],
+  selectedAgentId: null,
+  isLoading: false,
+  orchestratorSessionId: null,
+  orchestratorMessages: [],
+  isCreateAgentOpen: false,
+
+  setAgents: (agents) => set({ agents }),
+  addAgent: (agent) =>
+    set((state) => ({ agents: [...state.agents, agent] })),
+  updateAgentInfo: (id, updates) =>
+    set((state) => ({
+      agents: state.agents.map((a) =>
+        a.id === id ? { ...a, ...updates } : a
+      ),
+    })),
+  removeAgent: (id) =>
+    set((state) => ({
+      agents: state.agents.filter((a) => a.id !== id),
+      selectedAgentId:
+        state.selectedAgentId === id ? null : state.selectedAgentId,
+    })),
+  selectAgent: (id) => set({ selectedAgentId: id }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setOrchestratorSessionId: (id) => set({ orchestratorSessionId: id }),
+  setOrchestratorMessages: (msgs) => set({ orchestratorMessages: msgs }),
+  addOrchestratorMessage: (msg) =>
+    set((state) => ({
+      orchestratorMessages: [...state.orchestratorMessages, msg],
+    })),
+  setCreateAgentOpen: (open) => set({ isCreateAgentOpen: open }),
 }));
