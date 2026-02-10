@@ -496,7 +496,7 @@ def _reduce_with_umap(
     """
     Reduce high-dimensional embeddings with UMAP before clustering.
     
-    RAPTOR paper best practice: UMAP preserves local neighbourhood
+    RAPTOR paper best practice: UMAP preserves local neighborhood
     structure better than PCA, producing tighter clusters.
     Falls back to the original embeddings when UMAP is unavailable or
     when the sample count is too small for meaningful reduction.
@@ -630,7 +630,10 @@ def _cluster_leiden(
 
     clusters = [list(community) for community in partition if community]
 
-    membership = np.zeros((n_samples, max(len(clusters), 1)))
+    if not clusters:
+        return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
+
+    membership = np.zeros((n_samples, len(clusters)))
     for cluster_idx, members in enumerate(clusters):
         for node_idx in members:
             membership[node_idx, cluster_idx] = 1.0
@@ -663,7 +666,8 @@ def _cluster_gmm(
                 if bic < best_bic:
                     best_bic = bic
                     best_n = n
-            except Exception:
+            except Exception as exc:
+                print(f"   [WARN] GMM fit failed for n={n}: {exc}")
                 continue
         n_clusters = best_n
 
