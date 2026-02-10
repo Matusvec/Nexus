@@ -163,7 +163,7 @@ class RiskEngine:
 
         if (
             assessment.impact_score >= imp_threshold
-            and not assessment.hard_stops
+            and len(assessment.hard_stops) == 0
         ):
             assessment.reasons.append(
                 f"Impact {assessment.impact_score:.2f} >= threshold {imp_threshold} (soft warning)"

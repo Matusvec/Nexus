@@ -82,7 +82,7 @@ class ContractGuard:
                 text=True,
                 cwd=repo_path,
             )
-            changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+            changed_files = [stripped for f in result.stdout.strip().split("\n") if (stripped := f.strip())]
         except Exception as e:
             return False, [f"Failed to get git diff: {e}"]
 

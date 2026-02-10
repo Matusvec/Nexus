@@ -70,7 +70,7 @@ def format_escalation(req: EscalationRequest) -> str:
 
     lines.append("5) OPTIONS:")
     for i, opt in enumerate(req.options, 1):
-        label = chr(64 + i)  # A, B, C...
+        label = chr(ord('A') + i - 1)
         lines.append(f"   {label}) {opt}")
     lines.append("")
 
