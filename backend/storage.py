@@ -1,5 +1,5 @@
 """
-ChromaDB storage for RAPTOR chunks with image/table metadata tracking
+ChromaDB storage for T-Retriever chunks with image/table metadata tracking
 """
 from typing import List, Dict, Optional
 import chromadb
@@ -20,7 +20,7 @@ client = chromadb.PersistentClient(
 )
 
 
-def get_or_create_collection(collection_name: str = "raptor_chunks"):
+def get_or_create_collection(collection_name: str = "nexus_chunks"):
     """
     Get or create a ChromaDB collection for storing chunks
     
@@ -36,7 +36,7 @@ def get_or_create_collection(collection_name: str = "raptor_chunks"):
     collection = client.get_or_create_collection(
         name=collection_name,
         metadata={
-            "description": "RAPTOR hierarchical chunks with image/table metadata",
+            "description": "T-Retriever hierarchical chunks with image/table metadata",
             "embedding_model": "text-embedding-004"
         }
     )
@@ -48,7 +48,7 @@ def get_or_create_collection(collection_name: str = "raptor_chunks"):
 def store_chunks(
     chunks: List[str],
     document_id: str,
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     layer: int = 0,
     parent_id: Optional[str] = None
 ) -> List[str]:
@@ -59,8 +59,8 @@ def store_chunks(
         chunks: List of text chunks
         document_id: Identifier for source document
         collection_name: ChromaDB collection name
-        layer: RAPTOR layer (0 = base chunks, 1+ = summaries)
-        parent_id: Parent chunk ID for RAPTOR tree structure
+        layer: Tree layer (0 = base chunks, 1+ = summaries)
+        parent_id: Parent chunk ID for tree structure
         
     Returns:
         List of chunk IDs
@@ -100,7 +100,7 @@ def store_chunks(
         if content_meta["table_refs"]:
             metadata["table_refs"] = ",".join(content_meta["table_refs"])
         
-        # Add parent reference for RAPTOR tree
+        # Add parent reference for tree structure
         if parent_id:
             metadata["parent_id"] = parent_id
         
@@ -129,7 +129,7 @@ def store_contextualized_chunks(
     chunks: List[Dict],
     document_id: str,
     doc_summary: str = "",
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     layer: int = 0
 ) -> List[str]:
     """
@@ -145,7 +145,7 @@ def store_contextualized_chunks(
         document_id: Identifier for source document
         doc_summary: Document summary for metadata
         collection_name: ChromaDB collection name
-        layer: RAPTOR layer (0 = base chunks, 1+ = summaries)
+        layer: Tree layer (0 = base chunks, 1+ = summaries)
         
     Returns:
         List of chunk IDs
@@ -223,7 +223,7 @@ def store_contextualized_chunks(
 
 def query_chunks(
     query_text: str,
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     n_results: int = 5,
     filter_layer: Optional[int] = None,
     filter_content_type: Optional[str] = None
@@ -238,7 +238,7 @@ def query_chunks(
         query_text: Query text
         collection_name: ChromaDB collection name
         n_results: Number of results to return
-        filter_layer: Filter by RAPTOR layer (None = all layers)
+        filter_layer: Filter by tree layer (None = all layers)
         filter_content_type: Filter by content type ("image", "table", None = all)
         
     Returns:
@@ -268,7 +268,7 @@ def query_chunks(
     return results
 
 
-def get_chunk_by_id(chunk_id: str, collection_name: str = "raptor_chunks") -> Optional[Dict]:
+def get_chunk_by_id(chunk_id: str, collection_name: str = "nexus_chunks") -> Optional[Dict]:
     """
     Retrieve a specific chunk by ID
     
@@ -296,7 +296,7 @@ def get_chunk_by_id(chunk_id: str, collection_name: str = "raptor_chunks") -> Op
     return None
 
 
-def delete_document_chunks(document_id: str, collection_name: str = "raptor_chunks"):
+def delete_document_chunks(document_id: str, collection_name: str = "nexus_chunks"):
     """
     Delete all chunks for a specific document
     
@@ -319,7 +319,7 @@ def delete_document_chunks(document_id: str, collection_name: str = "raptor_chun
         print(f"   No chunks found for document: {document_id}")
 
 
-def get_collection_stats(collection_name: str = "raptor_chunks") -> Dict[str, any]:
+def get_collection_stats(collection_name: str = "nexus_chunks") -> Dict[str, any]:
     """
     Get statistics about the collection
     

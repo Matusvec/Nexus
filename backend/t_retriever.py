@@ -4,7 +4,7 @@ T-Retriever: Tree-based Hierarchical Retrieval for Textual Graphs
 Implementation based on the 2026 paper "T-Retriever: Tree-based Hierarchical 
 Retrieval Augmented Generation for Textual Graphs" by Wei et al.
 
-Key innovations over RAPTOR:
+Key innovations:
 1. Combines hierarchical tree retrieval with graph relationships
 2. Entity extraction and relationship modeling
 3. Graph-aware clustering that respects entity connections
@@ -13,11 +13,9 @@ Key innovations over RAPTOR:
 
 Architecture:
 - Layer 0: Raw chunks with extracted entities
-- Layer 1+: Summaries (like RAPTOR) BUT with entity aggregation
+- Layer 1+: Summaries with entity aggregation
 - Entity Graph: Connects chunks/summaries via shared entities
 - Retrieval: Tree search + graph expansion for related context
-
-This replaces RAPTOR with a more powerful graph-augmented approach.
 """
 from typing import List, Dict, Optional, Tuple, Set
 import numpy as np
@@ -41,7 +39,7 @@ import config
 # CONFIGURATION
 # ============================================================================
 
-# Tree building parameters (similar to RAPTOR)
+# Tree building parameters
 MAX_TREE_DEPTH = 4              # Maximum layers in tree
 MIN_CLUSTER_SIZE = 2            # Minimum nodes to form a cluster
 MAX_SUMMARY_TOKENS = 500        # Max tokens for summary context
@@ -407,7 +405,7 @@ def get_document_graph(document_id: str) -> EntityGraph:
     return _document_graphs[document_id]
 
 
-def save_document_graph(document_id: str, collection_name: str = "raptor_chunks"):
+def save_document_graph(document_id: str, collection_name: str = "nexus_chunks"):
     """Save graph metadata to ChromaDB collection metadata"""
     graph = _document_graphs.get(document_id)
     if not graph:
@@ -448,7 +446,7 @@ def save_document_graph(document_id: str, collection_name: str = "raptor_chunks"
         print(f"   [WARN] Failed to save graph: {e}")
 
 
-def load_document_graph(document_id: str, collection_name: str = "raptor_chunks") -> EntityGraph:
+def load_document_graph(document_id: str, collection_name: str = "nexus_chunks") -> EntityGraph:
     """Load graph from ChromaDB"""
     collection = get_or_create_collection(collection_name)
     graph_chunk_id = f"{document_id}_graph_metadata"
@@ -467,7 +465,7 @@ def load_document_graph(document_id: str, collection_name: str = "raptor_chunks"
 
 
 # ============================================================================
-# CLUSTERING MODULE (Similar to RAPTOR but entity-aware)
+# CLUSTERING MODULE (Entity-aware clustering)
 # ============================================================================
 
 def cluster_with_entities(
@@ -479,7 +477,7 @@ def cluster_with_entities(
     Entity-aware clustering using Leiden algorithm
     
     Clusters nodes considering both embedding similarity and entity overlap.
-    This is the key improvement over standard RAPTOR clustering.
+    This is the key improvement: entity-aware clustering.
     """
     try:
         import igraph as ig
@@ -553,7 +551,7 @@ def cluster_embeddings_gmm(
     embeddings: np.ndarray,
     n_clusters: Optional[int] = None
 ) -> Tuple[List[List[int]], np.ndarray]:
-    """Fallback GMM clustering (from RAPTOR)"""
+    """Fallback GMM clustering"""
     from sklearn.mixture import GaussianMixture
     
     n_samples = embeddings.shape[0]
@@ -678,7 +676,7 @@ Provide a clear, comprehensive summary (2-4 paragraphs):"""
 def get_layer_chunks_with_entities(
     document_id: str,
     layer: int,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> Tuple[List[str], List[str], List[Dict], List[List[float]], List[List[Dict]]]:
     """
     Get all chunks at a layer with their entities
@@ -721,7 +719,7 @@ def store_chunks_with_entities(
     chunks: List[Dict],
     document_id: str,
     layer: int,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> List[str]:
     """
     Store chunks with entity metadata
@@ -791,7 +789,7 @@ def store_chunks_with_entities(
 def build_layer_tretriever(
     document_id: str,
     current_layer: int,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> Tuple[int, List[str]]:
     """
     Build one layer of the T-Retriever tree
@@ -869,13 +867,13 @@ def build_layer_tretriever(
 
 def build_tretriever_tree(
     document_id: str,
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     max_depth: int = MAX_TREE_DEPTH
 ) -> Dict:
     """
     Build complete T-Retriever tree for a document
     
-    This is the main tree-building function that replaces RAPTOR's build_raptor_tree.
+    This is the main tree-building function.
     
     Process:
     1. Extract entities from base chunks (layer 0)
@@ -1011,7 +1009,7 @@ def build_tretriever_tree(
 def delete_tree_layers(
     document_id: str,
     min_layer: int = 1,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> int:
     """Delete summary layers for rebuilding"""
     collection = get_or_create_collection(collection_name)
@@ -1036,7 +1034,7 @@ def delete_tree_layers(
 
 def rebuild_tree(
     document_id: str,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> Dict:
     """Rebuild T-Retriever tree"""
     print(f"[REBUILD] Rebuilding T-Retriever tree for: {document_id}")
@@ -1052,7 +1050,7 @@ def rebuild_tree(
 
 def get_tree_stats(
     document_id: str,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> Dict:
     """Get T-Retriever tree statistics"""
     collection = get_or_create_collection(collection_name)

@@ -6,12 +6,12 @@ This is the main entry point that orchestrates all modules:
 - document_parser: Extract text, images, tables from documents
 - chunking: Semantic text chunking with contextual retrieval
 - storage: ChromaDB vector storage
-- raptor: Hierarchical tree building with UMAP + GMM clustering
-- query: Collapsed tree retrieval for comprehensive Q&A
+- t_retriever: Hierarchical tree building with entity-aware clustering
+- t_query: Collapsed tree retrieval for comprehensive Q&A
 
 Usage:
     python main.py upload <file>          Upload and process a document
-    python main.py build-tree -d <doc>    Build RAPTOR tree for document
+    python main.py build-tree -d <doc>    Build T-Retriever tree for document
     python main.py query <question>       Query the knowledge base
     python main.py stats                  Show database statistics
     python main.py list                   List all documents
@@ -80,7 +80,7 @@ def cmd_upload(args):
         chunks=contextualized,
         document_id=document_id,
         doc_summary=doc_summary,
-        collection_name="raptor_chunks",
+        collection_name="nexus_chunks",
         layer=0
     )
     

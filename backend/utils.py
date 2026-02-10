@@ -10,7 +10,7 @@ from typing import List, Dict
 
 def count_tokens(text: str) -> int:
     """
-    Estimate token count (rough approximation: 1 token ≈ 4 characters)
+    Estimate token count (rough approximation: 1 token ~ 4 characters)
     
     For more accurate counting, could use tiktoken, but this is fast and good enough.
     Most embedding models use similar tokenization.

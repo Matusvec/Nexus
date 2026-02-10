@@ -1,5 +1,5 @@
 """
-Text chunking utilities for RAPTOR - Semantic chunking based on topic shifts
+Text chunking utilities for T-Retriever - Semantic chunking based on topic shifts
 
 Industry best practices implemented:
 - Semantic chunking using embeddings to detect topic shifts
@@ -35,8 +35,8 @@ def chunk_text(
         text: Input text to chunk
         similarity_threshold: Cosine similarity threshold for grouping (0.7 = fairly similar)
         group_size: Number of sentences to group before embedding (prevents micro-chunks)
-        min_tokens: Minimum tokens per chunk (default 100 ≈ 400 chars)
-        max_tokens: Maximum tokens per chunk (default 500 ≈ 2000 chars)
+        min_tokens: Minimum tokens per chunk (default 100 ~ 400 chars)
+        max_tokens: Maximum tokens per chunk (default 500 ~ 2000 chars)
         overlap_tokens: Token overlap between consecutive chunks (default 50)
         
     Returns:

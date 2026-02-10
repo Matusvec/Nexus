@@ -17,11 +17,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in environment variables")
 
-# RAPTOR Configuration
-RAPTOR_MAX_LAYERS = int(os.getenv("RAPTOR_MAX_LAYERS", "2"))
-RAPTOR_CLUSTER_MIN_SIZE = int(os.getenv("RAPTOR_CLUSTER_MIN_SIZE", "5"))
-RAPTOR_CHUNK_SIZE = int(os.getenv("RAPTOR_CHUNK_SIZE", "500"))
-RAPTOR_CHUNK_OVERLAP = int(os.getenv("RAPTOR_CHUNK_OVERLAP", "50"))
+# Collection name for ChromaDB
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "nexus_chunks")
 
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")
@@ -40,4 +37,4 @@ GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 GEMINI_GENERATION_MODEL = "gemini-2.5-flash"
 
 print(f"[OK] Config loaded: ChromaDB at {CHROMA_PERSIST_DIR}")
-print(f"[OK] RAPTOR: {RAPTOR_MAX_LAYERS} layers, chunk size {RAPTOR_CHUNK_SIZE}")
+print(f"[OK] Collection: {COLLECTION_NAME}")

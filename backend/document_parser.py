@@ -493,7 +493,7 @@ if __name__ == "__main__":
         print("Document Parser - Extract text, images, and tables")
         print("\nUsage: python document_parser.py <file.pdf|file.docx>")
         print("\nThis will ONLY parse the document.")
-        print("For the full pipeline (parse → chunk → store), use:")
+        print("For the full pipeline (parse -> chunk -> store), use:")
         print("  python main.py upload <file>")
         sys.exit(0)
     

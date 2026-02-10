@@ -2,7 +2,7 @@
 T-Retriever Query Module: Hybrid Tree + Graph Retrieval
 
 Implements the T-Retriever query strategy:
-1. Tree Retrieval: Collapsed tree search across all layers (like RAPTOR)
+1. Tree Retrieval: Collapsed tree search across all layers
 2. Graph Expansion: Expand retrieved nodes through entity graph
 3. Hybrid Fusion: Combine tree and graph results
 
@@ -210,14 +210,14 @@ def classify_query(query: str) -> Dict:
 
 
 # ============================================================================
-# TREE RETRIEVAL (Collapsed Tree - like RAPTOR)
+# TREE RETRIEVAL (Collapsed Tree)
 # ============================================================================
 
 def collapsed_tree_retrieval(
     query: str,
     document_id: Optional[str] = None,
     top_k: int = DEFAULT_TOP_K,
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     layer_weights: Optional[Dict[int, float]] = None,
     query_entities: Optional[List[str]] = None
 ) -> List[Dict]:
@@ -302,7 +302,7 @@ def graph_expansion_retrieval(
     document_id: str,
     hops: int = GRAPH_EXPANSION_HOPS,
     top_k_per_hop: int = GRAPH_EXPANSION_TOP_K,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> List[Dict]:
     """
     Expand from seed chunks through entity graph
@@ -353,7 +353,7 @@ def entity_based_retrieval(
     query_entities: List[str],
     document_id: str,
     top_k: int = 5,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> List[Dict]:
     """
     Retrieve chunks that contain specific entities
@@ -415,7 +415,7 @@ def hybrid_retrieval(
     query: str,
     document_id: Optional[str] = None,
     top_k: int = DEFAULT_TOP_K,
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     alpha: float = HYBRID_ALPHA,
     graph_hops: int = GRAPH_EXPANSION_HOPS,
     query_entities: Optional[List[str]] = None
@@ -518,7 +518,7 @@ def hybrid_retrieval(
 def adaptive_retrieval(
     query: str,
     document_id: Optional[str] = None,
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     verbose: bool = False
 ) -> Tuple[List[Dict], Dict]:
     """
@@ -649,7 +649,7 @@ def answer_question(
     question: str,
     document_id: Optional[str] = None,
     top_k: int = DEFAULT_TOP_K,
-    collection_name: str = "raptor_chunks",
+    collection_name: str = "nexus_chunks",
     show_sources: bool = True,
     use_adaptive: bool = ENABLE_QUERY_CLASSIFICATION,
     verbose: bool = False
@@ -733,7 +733,7 @@ def multi_hop_query(
     question: str,
     document_id: Optional[str] = None,
     max_hops: int = 3,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> Dict:
     """
     Multi-hop reasoning using T-Retriever
@@ -830,7 +830,7 @@ def layer_specific_retrieval(
     layer: int,
     document_id: Optional[str] = None,
     top_k: int = DEFAULT_TOP_K,
-    collection_name: str = "raptor_chunks"
+    collection_name: str = "nexus_chunks"
 ) -> List[Dict]:
     """Retrieve from a specific layer only"""
     collection = get_or_create_collection(collection_name)
@@ -878,7 +878,7 @@ def layer_specific_retrieval(
 # CLI / TEST
 # ============================================================================
 
-def interactive_query(collection_name: str = "raptor_chunks"):
+def interactive_query(collection_name: str = "nexus_chunks"):
     """Interactive query mode for testing"""
     print("\nT-Retriever Interactive Query")
     print("=" * 50)
