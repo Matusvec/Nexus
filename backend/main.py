@@ -8,15 +8,17 @@ This is the main entry point that orchestrates all modules:
 - storage: ChromaDB vector storage
 - t_retriever: Hierarchical tree building with entity-aware clustering
 - t_query: Collapsed tree retrieval for comprehensive Q&A
+- document_manager: Unified add/remove document lifecycle
 
 Usage:
     python main.py upload <file>          Upload and process a document
+    python main.py remove <doc_id>        Fully remove a document (all layers + graph)
     python main.py build-tree -d <doc>    Build T-Retriever tree for document
     python main.py query <question>       Query the knowledge base
     python main.py stats                  Show database statistics
     python main.py list                   List all documents
     python main.py view <doc_id>          View document chunks
-    python main.py delete <doc_id>        Delete a document
+    python main.py delete <doc_id>        Delete a document (alias for remove)
 """
 import sys
 import argparse
@@ -25,91 +27,43 @@ from pathlib import Path
 
 def cmd_upload(args):
     """Upload and process a document through the full pipeline with contextual retrieval"""
-    from document_parser import parse_document
-    from chunking import chunk_text, contextualize_chunks
-    from gemini_client import generate_document_summary
-    from storage import store_contextualized_chunks, get_collection_stats
-    
+    from document_manager import add_document
+    from storage import get_collection_stats
+
     file_path = args.file
-    
+
     print("=" * 60)
-    print("NEXUS DOCUMENT UPLOAD (Contextual Retrieval)")
+    print("NEXUS DOCUMENT UPLOAD (T-Retriever Pipeline)")
     print("=" * 60)
-    
-    # Step 1: Parse document
-    print("\n[STEP 1/4] Parsing document...")
-    result = parse_document(file_path)
-    
-    print(f"\n[OK] Parsing complete:")
-    print(f"  - Text: {len(result['text'])} characters")
-    print(f"  - Images: {result['images_found']}")
-    print(f"  - Tables: {result['tables_found']}")
-    
-    # Step 2: Generate document summary (for contextual retrieval)
-    print("\n[STEP 2/4] Generating document summary...")
-    doc_summary = generate_document_summary(result['text'], result['metadata']['filename'])
-    print(f"  Summary: {doc_summary[:100]}...")
-    
-    # Step 3: Chunk text with overlap
-    print("\n[STEP 3/4] Chunking text (with overlap)...")
-    raw_chunks = chunk_text(
-        result['text'],
+
+    result = add_document(
+        file_path,
+        build_tree=args.build_tree,
         similarity_threshold=args.similarity_threshold,
         min_tokens=args.min_tokens,
         max_tokens=args.max_tokens,
         group_size=args.group_size,
-        overlap_tokens=args.overlap_tokens
+        overlap_tokens=args.overlap_tokens,
+        use_llm_context=args.llm_context,
+        max_tree_layers=args.max_tree_layers,
     )
-    
-    print(f"  Created {len(raw_chunks)} semantic chunks with {args.overlap_tokens}-token overlap")
-    
-    # Step 4: Add contextual information to each chunk (Anthropic's method)
-    print("\n[STEP 4/5] Adding contextual embeddings...")
-    contextualized = contextualize_chunks(
-        raw_chunks, 
-        doc_summary, 
-        result['metadata']['filename'],
-        use_llm_context=args.llm_context
-    )
-    
-    # Step 5: Store in ChromaDB
-    print("\n[STEP 5/5] Storing in ChromaDB...")
-    document_id = Path(file_path).stem
-    
-    chunk_ids = store_contextualized_chunks(
-        chunks=contextualized,
-        document_id=document_id,
-        doc_summary=doc_summary,
-        collection_name="nexus_chunks",
-        layer=0
-    )
-    
+
     # Final summary
     print("\n" + "=" * 60)
     print("UPLOAD COMPLETE")
     print("=" * 60)
-    print(f"Document: {result['metadata']['filename']}")
-    print(f"Chunks stored: {len(chunk_ids)}")
-    
-    # Warn if too few chunks for optimal tree building
-    from t_retriever import MIN_NODES_FOR_CLUSTERING
-    if len(chunk_ids) < 10:
-        print(f"\n[WARN] WARNING: Only {len(chunk_ids)} chunks created.")
-        print(f"   T-Retriever tree building works best with 10+ chunks.")
-        print(f"   With fewer chunks, clustering may be less optimal.")
-        print(f"   Consider uploading a longer document or lowering --max-tokens.")
-    print(f"Features used:")
-    print(f"  [+] Semantic chunking with {args.overlap_tokens}-token overlap")
-    print(f"  [+] Contextual embeddings (Anthropic's method)")
-    if args.llm_context:
-        print(f"  [+] LLM-generated chunk context")
-    
+    print(f"Document: {result['filename']}")
+    print(f"Base chunks stored: {result['chunk_count']}")
+    if result.get("tree_stats"):
+        ts = result["tree_stats"]
+        print(f"Tree depth: {ts.get('tree_depth', 0)} layers")
+        print(f"Total nodes: {ts.get('total_nodes', 0)}")
+        print(f"Unique entities: {ts.get('total_entities', 0)}")
+
     stats = get_collection_stats()
     print(f"\nDatabase Statistics:")
     print(f"  Total chunks: {stats['total_chunks']}")
     print(f"  Documents: {len(stats['documents'])}")
-    print(f"  Chunks with images: {stats['content_types'].get('image', 0)}")
-    print(f"  Chunks with tables: {stats['content_types'].get('table', 0)}")
     print("=" * 60)
 
 
@@ -192,43 +146,47 @@ def cmd_stats(args):
 
 
 def cmd_list(args):
-    """List all documents"""
-    from storage import get_collection_stats, get_or_create_collection
-    
+    """List all documents with tree status"""
+    from document_manager import list_documents
+
     print("All Documents\n")
-    stats = get_collection_stats()
-    
-    if not stats['documents']:
+    documents = list_documents()
+
+    if not documents:
         print("Database is empty. Upload a document with:")
         print("  python main.py upload <file.pdf>")
     else:
-        collection = get_or_create_collection()
-        for i, doc in enumerate(stats['documents'], 1):
-            doc_results = collection.get(where={"document_id": doc})
-            print(f"{i}. {doc} ({len(doc_results['ids'])} chunks)")
+        for i, doc in enumerate(documents, 1):
+            tree_info = (
+                f"[Tree: {doc['tree_depth']} layers, {doc['unique_entities']} entities]"
+                if doc["has_tree"]
+                else "[No tree]"
+            )
+            print(f"{i}. {doc['document_id']} ({doc['total_nodes']} nodes) {tree_info}")
 
 
 def cmd_delete(args):
-    """Delete a document from the database"""
-    from storage import delete_document_chunks, get_or_create_collection
-    
+    """Delete a document from the database (full removal including tree + graph)"""
+    from document_manager import remove_document
+    from storage import get_or_create_collection
+
     doc_id = args.doc_id
     collection = get_or_create_collection()
     check = collection.get(where={"document_id": doc_id})
-    
+
     if not check["ids"]:
         print(f"[ERROR] Document not found: {doc_id}")
         return
-    
+
     if not args.force:
-        print(f"[WARN] This will delete {len(check['ids'])} chunks from '{doc_id}'")
+        print(f"[WARN] This will fully remove '{doc_id}' ({len(check['ids'])} items: chunks + tree + graph)")
         confirm = input("Type 'yes' to confirm: ")
         if confirm.lower() != "yes":
             print("Cancelled.")
             return
-    
-    delete_document_chunks(doc_id)
-    print(f"[OK] Deleted '{doc_id}'")
+
+    result = remove_document(doc_id)
+    print(f"[OK] Removed '{doc_id}' ({result['deleted_chunks']} items deleted)")
 
 
 def cmd_view(args):
@@ -347,6 +305,8 @@ def main():
         epilog="""
 Examples:
   python main.py upload research_paper.pdf
+  python main.py upload research_paper.pdf --no-tree
+  python main.py remove my_document
   python main.py query "What are the main findings?"
   python main.py stats
   python main.py list
@@ -358,7 +318,7 @@ Examples:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
     # Upload command
-    upload_parser = subparsers.add_parser("upload", help="Upload and process a document")
+    upload_parser = subparsers.add_parser("upload", help="Upload and process a document (+ build tree)")
     upload_parser.add_argument("file", help="Path to PDF or DOCX file")
     upload_parser.add_argument("--similarity-threshold", type=float, default=0.7,
                                help="Cosine similarity threshold for chunking (default: 0.7)")
@@ -372,7 +332,18 @@ Examples:
                                help="Token overlap between chunks (default: 50)")
     upload_parser.add_argument("--llm-context", action="store_true",
                                help="Use LLM to generate per-chunk context (slower but better)")
+    upload_parser.add_argument("--no-tree", dest="build_tree", action="store_false", default=True,
+                               help="Skip automatic tree building after upload")
+    upload_parser.add_argument("--max-tree-layers", type=int, default=3,
+                               help="Maximum tree depth when building (default: 3)")
     upload_parser.set_defaults(func=cmd_upload)
+    
+    # Remove command (full cleanup)
+    remove_parser = subparsers.add_parser("remove", help="Fully remove a document (chunks + tree + graph)")
+    remove_parser.add_argument("doc_id", help="Document ID to remove")
+    remove_parser.add_argument("-f", "--force", action="store_true",
+                               help="Skip confirmation prompt")
+    remove_parser.set_defaults(func=cmd_delete)
     
     # Query command
     query_parser = subparsers.add_parser("query", help="Query the knowledge base")
@@ -391,7 +362,7 @@ Examples:
     stats_parser.set_defaults(func=cmd_stats)
     
     # List command
-    list_parser = subparsers.add_parser("list", help="List all documents")
+    list_parser = subparsers.add_parser("list", help="List all documents with tree status")
     list_parser.set_defaults(func=cmd_list)
     
     # View command
@@ -400,8 +371,8 @@ Examples:
     view_parser.add_argument("--limit", type=int, help="Limit number of chunks shown")
     view_parser.set_defaults(func=cmd_view)
     
-    # Delete command
-    delete_parser = subparsers.add_parser("delete", help="Delete a document")
+    # Delete command (alias for remove)
+    delete_parser = subparsers.add_parser("delete", help="Delete a document (alias for remove)")
     delete_parser.add_argument("doc_id", help="Document ID to delete")
     delete_parser.add_argument("-f", "--force", action="store_true",
                                help="Skip confirmation prompt")
