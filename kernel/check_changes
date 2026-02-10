@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""
+CLI: Check git changes against contract guard policies.
+
+Usage:
+    kernel/check_changes [--repo-path .] [--markers CONTRACT-CHANGE]
+
+Returns exit code 0 if no violations, 1 if contract files modified without marker.
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from kernel.contract_guard import ContractGuard
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Check git changes against contract guard")
+    parser.add_argument("--repo-path", type=str, default=".", help="Path to git repo")
+    parser.add_argument("--policies", type=str, default=None, help="Path to policies YAML")
+    parser.add_argument("--markers", nargs="*", default=None, help="Contract change markers present")
+    args = parser.parse_args()
+
+    guard = ContractGuard(args.policies)
+    ok, violations = guard.check_git_diff(repo_path=args.repo_path, markers=args.markers)
+
+    if ok:
+        print("OK: No contract guard violations detected.")
+        sys.exit(0)
+    else:
+        print("VIOLATIONS DETECTED:")
+        for v in violations:
+            print(f"  - {v}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
