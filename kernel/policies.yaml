@@ -1,0 +1,42 @@
+version: "1.0"
+global:
+  default_uncertainty_threshold: 0.35
+  default_impact_threshold: 0.7
+  max_assumptions_before_escalation: 3
+  require_verification: true
+
+contract_paths:
+  - "contracts/**"
+  - "**/openapi.yaml"
+  - "**/openapi.json"
+  - "**/schema.sql"
+  - "**/db_schema.*"
+  - "**/design_tokens.*"
+  - "**/ml_io.*"
+  - "security/**"
+  - "retrieval/**"
+
+high_risk_paths:
+  - "security/**"
+  - "**/.env*"
+  - "**/secrets*"
+  - "**/credentials*"
+  - "contracts/**"
+  - "retrieval/**"
+
+destructive_actions:
+  - "rm -rf"
+  - "DROP TABLE"
+  - "DROP DATABASE"
+  - "DELETE FROM"
+  - "TRUNCATE"
+  - "git push --force"
+  - "shutil.rmtree"
+
+contract_change_marker: "CONTRACT-CHANGE"
+
+risk_weights:
+  assumptions: 0.15
+  missing_verification: 0.25
+  cross_context: 0.20
+  high_risk_dir: 0.40
