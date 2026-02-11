@@ -71,9 +71,9 @@ def extract_query_entities(query: str) -> List[str]:
     words = re.findall(r'\b[A-Za-z][A-Za-z0-9_-]*\b', query)
     entities = [w for w in words if w.lower() not in stopwords and len(w) > 2]
     
-    # Also find capitalized phrases
+    # Also find capitalized phrases (filtering stopwords)
     cap_phrases = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', query)
-    entities.extend(cap_phrases)
+    entities.extend(p for p in cap_phrases if p.lower() not in stopwords)
     
     # Deduplicate while preserving order
     seen = set()
