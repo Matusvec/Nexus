@@ -456,9 +456,9 @@ def _repo_inspect(path: str = ".", pattern: str = "") -> ToolResult:
     """Inspect repository files for code analysis. Read-only and scoped to the repo."""
     import glob as glob_mod
 
-    # Scope to backend directory for safety
-    base = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    target = os.path.normpath(os.path.join(base, path))
+    # Scope to backend directory for safety — use realpath to prevent symlink traversal
+    base = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+    target = os.path.realpath(os.path.join(base, path))
     if not target.startswith(base):
         return ToolResult(output="Access denied: path outside repository.", success=False)
 
