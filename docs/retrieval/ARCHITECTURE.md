@@ -210,17 +210,99 @@ The `explain_retrieval()` API returns:
 ## 8. Known Limitations
 
 1. **Entity graph is per-document**: No cross-document entity linking yet.
-2. **Full rebuild on update**: Removing a single chunk requires rebuilding the tree for that document.
-3. **No streaming generation**: Answers are generated in one shot.
-4. **Graph edge construction is O(n²)**: Acceptable up to ~10 k nodes per document; larger documents should be chunked more aggressively.
-5. **No quantitative evaluation**: Retrieval quality is not automatically benchmarked.
+2. **No streaming generation**: Answers are generated in one shot.
+3. **Graph edge construction is O(n²)**: Acceptable up to ~10 k nodes per document; larger documents should be chunked more aggressively.
+4. **No quantitative evaluation**: Retrieval quality is not automatically benchmarked.
+5. **Cluster merge is local**: When a cluster shrinks below threshold, it merges with the nearest sibling only; a full re-clustering of the layer might produce better partitions (handled by background compaction).
 
 ---
 
-## 9. Future Extensions
+## 9. Incremental Updates + Background Compaction
+
+### Problem
+
+The original implementation rebuilt every summary layer (L1+) from scratch whenever
+a document was modified.  This is O(n) in the total number of chunks — unacceptable
+for an online system serving concurrent queries.
+
+### Solution: Localized Repair via Membership Index
+
+```
+TreeIndex  (backend/tree_index.py)
+  ├── membership:   chunk_id → { cluster_id, parent_id, layer, children }
+  ├── dirty_nodes:  set of IDs modified since last compaction
+  ├── _tombstones:  soft-deleted IDs (purged on compaction)
+  └── tree_version: monotonically increasing integer
+```
+
+**On chunk deletion** (`incremental_remove_chunks`):
+
+```
+  delete chunk from ChromaDB
+       │
+  mark tombstone in TreeIndex
+       │
+  remove chunk from parent.children
+       │
+  if parent.children.size < MIN_CLUSTER_SIZE_AFTER_DELETE:
+  │   find nearest sibling cluster (cosine similarity)
+  │   move remaining children → sibling
+  │   tombstone old parent summary
+  │   re-summarize sibling  ←  ONLY this node
+  else:
+  │   re-summarize parent  ←  ONLY this node
+       │
+  propagate upward along ancestor_chain()
+       │  (re-summarize each ancestor — O(tree_depth) nodes)
+       │
+  if dirty_nodes ≥ COMPACTION_DIRTY_THRESHOLD:
+       │   compact()  →  purge tombstones, bump tree_version
+       ▼
+  save_document_index()
+```
+
+This repairs **only the affected subtree** — unrelated clusters and their
+summaries are never touched.
+
+### Background Compaction
+
+| Parameter | Default | Description |
+|---|---|---|
+| `COMPACTION_DIRTY_THRESHOLD` | 10 | Number of dirty nodes before auto-compaction |
+| `COMPACTION_ENABLED` | True | Toggle compaction on/off |
+| `MIN_CLUSTER_SIZE_AFTER_DELETE` | 2 | Merge when cluster drops below this |
+
+Compaction:
+1. Purges all tombstoned entries from the membership dict.
+2. Clears the dirty-node set.
+3. Bumps `tree_version`.
+
+Because compaction only mutates the in-memory index and the ChromaDB metadata
+chunk (layer = -2), it is **lock-free** with respect to concurrent queries:
+queries read the vector index directly and are not affected by index metadata
+changes.
+
+### Atomic Versioning
+
+`tree_version` is stored in the tree index metadata (layer = -2) and
+incremented on every compaction.  Downstream consumers can poll `get_tree_info()`
+to detect when a new version is available.
+
+### Retrieval API
+
+| Endpoint | Behaviour |
+|---|---|
+| `remove_documents(ids)` | Full removal — deletes all layers, graph, and index |
+| `remove_chunks(doc_id, chunk_ids)` | **Incremental** — localized repair, no rebuild |
+| `query()` / `explain_retrieval()` | Unchanged — reads current state of ChromaDB |
+
+---
+
+## 10. Future Extensions
 
 - **Cross-document entity graph**: Link entities across documents for corpus-wide multi-hop reasoning.
-- **Incremental tree updates**: Add/remove individual chunks without full rebuild.
+- **Online incremental clustering**: Add new chunks to existing clusters without rebuilding the layer.
 - **FastAPI server**: Expose retrieval API over HTTP (spec in `frontend/API_SPECIFICATION.md`).
 - **AR/VR integration**: Spatial knowledge graph navigation.
 - **Feedback loop**: Re-rank results based on user interaction signals.
+- **Scheduled compaction job**: Run compaction on a timer or as a background thread.

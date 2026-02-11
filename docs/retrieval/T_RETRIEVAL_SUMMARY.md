@@ -127,9 +127,57 @@ Beyond that, consider sharding graphs per document group and ANN-based edge cons
 
 ---
 
-## 6. Future Work
+## 6. Incremental Updates (deviation from naive approach)
+
+The T-Retriever paper assumes a static corpus: build the tree once, query many times.
+Our implementation extends this for an **online system** where documents are added and
+removed continuously.
+
+### What the paper assumes
+
+> Build the full tree once.  Rebuild on any change.
+
+### What we do instead
+
+1. **Membership index** (`TreeIndex`): Every chunk knows its cluster, parent summary,
+   and ancestor chain.  This is built during `build_tretriever_tree()` and persisted
+   alongside the tree.
+
+2. **Localized repair on deletion**: When a chunk is removed, only its parent cluster
+   and ancestor summaries are re-computed.  The cost is O(tree_depth × LLM_latency)
+   instead of O(n² + n × LLM_latency) for a full rebuild.
+
+3. **Cluster merging**: If a cluster drops below `MIN_CLUSTER_SIZE_AFTER_DELETE`,
+   its remaining children are moved to the nearest sibling cluster (by centroid
+   cosine similarity).  This preserves the hierarchical structure without requiring
+   a full re-clustering.
+
+4. **Background compaction**: Dirty nodes accumulate; when the threshold is reached,
+   tombstoned entries are purged and `tree_version` is bumped.  Queries are not
+   blocked during compaction.
+
+### Why this is faithful to the paper
+
+The paper's key contribution is the **entity-aware hierarchical structure** and
+**hybrid retrieval**.  Our incremental updates preserve both:
+
+- **Entity graph** is unchanged by localized repair (graph edges are between chunks,
+  not between summaries).
+- **Hierarchical summaries** are regenerated from the same child nodes — the only
+  difference is that one child is missing.
+- **Collapsed-tree retrieval** searches all layers simultaneously in ChromaDB;
+  it is unaffected by index metadata changes.
+- **Graph expansion** walks entity edges that are unrelated to cluster membership.
+
+The hierarchical retrieval guarantees (multi-resolution search, entity-aware scoring,
+hybrid fusion) are fully maintained.
+
+---
+
+## 7. Future Work
 
 - Cross-document entity graphs (merge entity indices across docs)
-- Online incremental clustering (add nodes to existing clusters without full rebuild)
+- Online incremental clustering (add new chunks to existing clusters)
 - Retrieval feedback loop (re-rank based on user interaction)
 - Streaming generation with source highlighting
+- Scheduled compaction as a background thread or cron job

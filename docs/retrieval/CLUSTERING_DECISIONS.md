@@ -112,3 +112,35 @@ To override at runtime, pass `strategy=` to `cluster_with_entities()`.
 | 50 – 1 000 chunks | Leiden (default) | Community detection handles this range well |
 | 1 000 – 50 000 chunks | Leiden or HDBSCAN | HDBSCAN may find tighter density clusters |
 | > 50 000 chunks | HDBSCAN with per-document scope | Avoid building full similarity matrix; use approximate methods |
+
+---
+
+## 8. Localized Repair vs Full Rebuild
+
+When a chunk is deleted, the naive approach is to re-cluster the entire layer and rebuild all summaries.  This is O(n²) in the layer size (similarity matrix + clustering + LLM summarisation).
+
+**Our approach: localized repair.**
+
+| Aspect | Full Rebuild | Localized Repair (ours) |
+|---|---|---|
+| **Scope** | All clusters at every layer | Only the affected cluster + ancestor chain |
+| **Cost per deletion** | O(n² + k × LLM) where n = layer size | O(depth × LLM) — typically 2–3 LLM calls |
+| **Cluster quality** | Optimal (fresh clustering) | Near-optimal (existing partitions preserved) |
+| **Latency** | Seconds to minutes | Milliseconds + 2–3 LLM calls |
+| **When preferred** | Scheduled maintenance, bulk changes | Online, interactive deletions |
+
+### Why localized repair is acceptable
+
+1. **Cluster stability**: Removing one chunk from a well-formed cluster rarely changes the cluster's theme.  The remaining children still share the same entities and semantic space.
+2. **Summary regeneration**: Re-summarising from N-1 children produces a summary that is nearly identical to the original; the paper's hierarchical guarantees are preserved.
+3. **Nearest-sibling merge**: When a cluster becomes too small, merging with the most similar sibling preserves semantic coherence.  The merged cluster is a union of two similar communities.
+4. **Compaction catches drift**: If many deletions accumulate, background compaction can fully re-cluster dirty subtrees — providing a safety net without blocking online operations.
+
+### Configuration
+
+```python
+# tree_index.py
+COMPACTION_DIRTY_THRESHOLD = 10       # auto-compact after this many dirty nodes
+COMPACTION_ENABLED = True             # toggle compaction
+MIN_CLUSTER_SIZE_AFTER_DELETE = 2     # merge when cluster drops below this
+```

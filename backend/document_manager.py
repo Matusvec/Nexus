@@ -257,7 +257,7 @@ def incremental_remove_chunks(
             if not tree_idx.is_tombstoned(c)
         ]
 
-        if len(remaining_children) < MIN_CLUSTER_SIZE_AFTER_DELETE and len(remaining_children) > 0:
+        if 0 < len(remaining_children) < MIN_CLUSTER_SIZE_AFTER_DELETE:
             # Cluster is too small — try to merge children into nearest sibling cluster
             # Collect embeddings for nearest-sibling lookup
             emb_lookup: Dict[str, list] = {}
@@ -286,7 +286,7 @@ def incremental_remove_chunks(
                 # Move remaining children to the sibling cluster
                 for child_id in remaining_children:
                     tree_idx.set_parent(child_id, nearest)
-                    tree_idx.membership[nearest].setdefault("children", []).append(child_id)
+                    tree_idx.add_child(nearest, child_id)
                 # Mark old parent for removal
                 tree_idx.mark_tombstone(parent_id)
                 try:

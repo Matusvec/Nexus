@@ -96,6 +96,17 @@ class TreeIndex:
         return chain
 
     # ------------------------------------------------------------------
+    # Mutation helpers
+    # ------------------------------------------------------------------
+
+    def add_child(self, parent_id: str, child_id: str) -> None:
+        """Add *child_id* to *parent_id*'s children list."""
+        if parent_id in self.membership:
+            children = self.membership[parent_id].setdefault("children", [])
+            if child_id not in children:
+                children.append(child_id)
+
+    # ------------------------------------------------------------------
     # Deletion helpers
     # ------------------------------------------------------------------
 
