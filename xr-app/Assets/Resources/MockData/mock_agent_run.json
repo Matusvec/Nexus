@@ -1,0 +1,73 @@
+{
+  "task": "Summarize all documents and identify key themes",
+  "events": [
+    {
+      "type": "thinking",
+      "content": "I need to analyze all documents in the knowledge base. Let me start by listing available documents and then search for key themes.",
+      "timestamp": 0.0
+    },
+    {
+      "type": "tool_call",
+      "toolName": "list_documents",
+      "toolInput": "{\"status\": \"ready\"}",
+      "content": "Listing all ready documents...",
+      "timestamp": 1.2
+    },
+    {
+      "type": "tool_result",
+      "toolName": "list_documents",
+      "toolOutput": "4 documents available: RAPTOR_Retrieval.pdf (47 chunks), BrushlessMotor_Spec_v2.pdf (23 chunks), QuantumTunneling_Lecture.pdf (35 chunks), REST_API_BestPractices.md (12 chunks)",
+      "content": "Document list retrieved.",
+      "timestamp": 2.8
+    },
+    {
+      "type": "tool_call",
+      "toolName": "knowledge_search",
+      "toolInput": "{\"query\": \"main topics and themes\", \"top_k\": 10}",
+      "content": "Searching for key themes across all documents...",
+      "timestamp": 3.5
+    },
+    {
+      "type": "tool_result",
+      "toolName": "knowledge_search",
+      "toolOutput": "Found 10 relevant chunks spanning AI/ML retrieval, electrical engineering, quantum physics, and software architecture.",
+      "content": "Theme search complete.",
+      "timestamp": 5.0
+    },
+    {
+      "type": "thinking",
+      "content": "I can identify several distinct themes: (1) AI/ML information retrieval, (2) Hardware engineering, (3) Quantum physics, (4) Software design patterns.",
+      "timestamp": 5.5
+    },
+    {
+      "type": "token",
+      "content": "# Knowledge Base Summary\n\nYour knowledge base contains 4 documents (117 total chunks) spanning the following key themes:\n\n",
+      "timestamp": 6.0
+    },
+    {
+      "type": "token",
+      "content": "## 1. AI/ML Information Retrieval\nRAPTOR paper describes a hierarchical approach to RAG systems with tree-structured summaries.\n\n",
+      "timestamp": 6.5
+    },
+    {
+      "type": "token",
+      "content": "## 2. Hardware Engineering\nBrushless motor specifications covering electrical and mechanical parameters.\n\n",
+      "timestamp": 7.0
+    },
+    {
+      "type": "token",
+      "content": "## 3. Quantum Physics\nLecture notes on quantum tunneling with mathematical foundations.\n\n",
+      "timestamp": 7.5
+    },
+    {
+      "type": "token",
+      "content": "## 4. Software Architecture\nREST API design best practices and patterns.",
+      "timestamp": 8.0
+    },
+    {
+      "type": "done",
+      "content": "Summary generation complete. 4 themes identified across 4 documents.",
+      "timestamp": 8.5
+    }
+  ]
+}

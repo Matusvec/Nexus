@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!129 &1
+PlayerSettings:
+  productName: NexusXR
+  companyName: NexusTeam
+  defaultScreenWidth: 1920
+  defaultScreenHeight: 1080
+  colorSpace: 1 # Linear
+  targetDevice: 0
+  virtualRealitySupported: 1
+  # Android settings for Quest 2
+  AndroidMinSdkVersion: 29
+  AndroidTargetSdkVersion: 32
+  # XR Plugin Management
+  m_BuildTargetVRSettings:
+    - m_BuildTarget: Android
+      m_Enabled: 1
+      m_Devices:
+        - OpenXR
+    - m_BuildTarget: Standalone
+      m_Enabled: 1
+      m_Devices:
+        - OpenXR
