@@ -57,7 +57,7 @@ const initialNodes: Node[] = [
       documentIds: ["doc-1", "doc-2", "doc-3"],
       position: { x: 100, y: 100 },
       assignedPersona: "max",
-    } as DocumentGroup,
+    } as DocumentGroup as unknown as Record<string, unknown>,
   },
   {
     id: "group-2",
@@ -71,7 +71,7 @@ const initialNodes: Node[] = [
       documentIds: ["doc-4", "doc-5"],
       position: { x: 450, y: 50 },
       assignedPersona: "elena",
-    } as DocumentGroup,
+    } as DocumentGroup as unknown as Record<string, unknown>,
   },
   {
     id: "group-3",
@@ -85,7 +85,7 @@ const initialNodes: Node[] = [
       documentIds: ["doc-6", "doc-7", "doc-8", "doc-9"],
       position: { x: 300, y: 300 },
       assignedPersona: "byte",
-    } as DocumentGroup,
+    } as DocumentGroup as unknown as Record<string, unknown>,
   },
   {
     id: "group-4",
@@ -99,7 +99,7 @@ const initialNodes: Node[] = [
       documentIds: ["doc-10"],
       position: { x: 650, y: 250 },
       assignedPersona: "stacy",
-    } as DocumentGroup,
+    } as DocumentGroup as unknown as Record<string, unknown>,
   },
 ];
 
@@ -135,7 +135,7 @@ export default function WorkspaceCanvas() {
         color: "#6B7280",
         documentIds: [],
         position: { x: 0, y: 0 },
-      } as DocumentGroup,
+      } as DocumentGroup as unknown as Record<string, unknown>,
     };
     setNodes((nds) => [...nds, newNode]);
   }, [setNodes]);
@@ -143,7 +143,7 @@ export default function WorkspaceCanvas() {
   // Stats for the panel
   const stats = useMemo(() => {
     const totalDocs = nodes.reduce(
-      (acc, node) => acc + (node.data as DocumentGroup).documentIds.length,
+      (acc, node) => acc + (node.data as unknown as DocumentGroup).documentIds.length,
       0
     );
     return {
@@ -178,7 +178,7 @@ export default function WorkspaceCanvas() {
         <Controls className="!bg-card !border-border !shadow-xl" />
         <MiniMap
           nodeColor={(node) => {
-            const data = node.data as DocumentGroup;
+            const data = node.data as unknown as DocumentGroup;
             return data.color || "#6B7280";
           }}
           maskColor="hsl(222 47% 5% / 0.8)"
