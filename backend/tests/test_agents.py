@@ -14,11 +14,12 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 # Patch config before importing agents to avoid needing GEMINI_API_KEY
+# NOTE: This uses a mock value for testing only — never commit real API keys
 import sys
 import types
 
 mock_config = types.ModuleType("config")
-mock_config.GEMINI_API_KEY = "test-key"
+mock_config.GEMINI_API_KEY = "test-key"  # Mock value for tests only
 mock_config.CHROMA_PERSIST_DIR = "/tmp/test_chroma"
 mock_config.COLLECTION_NAME = "test_chunks"
 mock_config.HOST = "0.0.0.0"
@@ -315,6 +316,13 @@ class TestAgent:
         result = Agent._parse_tool_call(response)
         assert result is not None
         assert result["tool"] == "web_search"
+
+    def test_parse_tool_call_nested_args(self):
+        response = '{"tool": "complex", "args": {"filter": {"layer": 0, "doc": "test"}}}'
+        result = Agent._parse_tool_call(response)
+        assert result is not None
+        assert result["tool"] == "complex"
+        assert result["args"]["filter"]["layer"] == 0
 
     @patch("gemini_client.generate_content")
     def test_run_direct_answer(self, mock_gen):

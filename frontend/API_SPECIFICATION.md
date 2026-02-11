@@ -545,3 +545,278 @@ Alternatively, set the `NEXT_PUBLIC_API_URL` environment variable:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
+
+---
+
+## 🤖 Agents
+
+### List Agents
+```http
+GET /agents
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "research",
+    "config": {
+      "name": "Research Agent",
+      "role": "research",
+      "system_prompt": "You are a research specialist...",
+      "description": "Searches the RAG knowledge base...",
+      "tools": ["rag_search", "rag_tree_search", "document_list", "document_summary", "text_summarize", "extract_entities"],
+      "model": "",
+      "temperature": 0.7,
+      "max_iterations": 10
+    },
+    "created_at": 1738000000,
+    "message_count": 0,
+    "is_custom": false
+  }
+]
+```
+
+---
+
+### Get Agent
+```http
+GET /agents/{agent_id}
+```
+
+**Response:** Single agent object (same as list item)
+
+---
+
+### Create Custom Agent
+```http
+POST /agents
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "My Custom Agent",
+  "system_prompt": "You are a helpful assistant for...",
+  "description": "Helps with specific tasks",
+  "tools": ["rag_search", "calculate", "web_search"],
+  "temperature": 0.7,
+  "max_iterations": 10
+}
+```
+
+**Response:** Created agent object
+
+**Status Codes:**
+- `201` - Created
+- `400` - Invalid tools or missing fields
+
+---
+
+### Update Custom Agent
+```http
+PATCH /agents/{agent_id}
+Content-Type: application/json
+```
+
+**Request Body:** Partial update (any fields from create)
+
+**Response:** Updated agent object
+
+---
+
+### Delete Custom Agent
+```http
+DELETE /agents/{agent_id}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Agent custom_abc123 deleted"
+}
+```
+
+*Note: Built-in agents cannot be deleted.*
+
+---
+
+### Chat with Agent
+```http
+POST /agents/{agent_id}/chat
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "message": "What documents do we have about motors?",
+  "context": {"document_id": "optional_filter"}
+}
+```
+
+**Response:**
+```json
+{
+  "agent_id": "research",
+  "agent_name": "Research Agent",
+  "response": {
+    "content": "Based on my search of the knowledge base...",
+    "tool_calls": [
+      {
+        "tool": "rag_search",
+        "args": {"query": "motors", "top_k": 5},
+        "result_preview": "[1] Motor specifications...",
+        "success": true
+      }
+    ],
+    "sources": [
+      {
+        "chunk_id": "motor_specs_L0_chunk3",
+        "document_id": "motor_specs",
+        "layer": 0,
+        "score": 0.89,
+        "preview": "Brushless DC motor torque specs..."
+      }
+    ],
+    "reasoning": ["Calling tool: rag_search(...)", "Generating final answer"],
+    "agent_id": "research",
+    "iterations": 2
+  }
+}
+```
+
+---
+
+### Clear Agent History
+```http
+DELETE /agents/{agent_id}/history
+```
+
+---
+
+### List Available Tools
+```http
+GET /agents/tools/list
+```
+
+**Response:**
+```json
+[
+  {
+    "name": "rag_search",
+    "description": "Search the RAG knowledge base...",
+    "parameters": [
+      {"name": "query", "type": "string", "description": "Search query", "required": true},
+      {"name": "top_k", "type": "integer", "description": "Number of results", "required": false}
+    ],
+    "category": "knowledge"
+  }
+]
+```
+
+---
+
+## 🎯 Orchestrator
+
+### Create Session
+```http
+POST /agents/orchestrator/sessions
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "Research Project Alpha"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "session_abc123",
+  "name": "Research Project Alpha",
+  "messages": [],
+  "participating_agents": [],
+  "created_at": 1738000000
+}
+```
+
+---
+
+### List Sessions
+```http
+GET /agents/orchestrator/sessions
+```
+
+---
+
+### Get Session
+```http
+GET /agents/orchestrator/sessions/{session_id}
+```
+
+---
+
+### Send Message to Orchestrator
+```http
+POST /agents/orchestrator/sessions/{session_id}/chat
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "message": "Find information about motors and calculate the torque needed for 5G acceleration",
+  "target_agent_id": null
+}
+```
+
+The orchestrator will automatically route to the best agent(s) or engage multiple agents for complex queries.
+
+**Response:**
+```json
+{
+  "session_id": "session_abc123",
+  "response": {
+    "content": "Based on the combined analysis...",
+    "tool_calls": [...],
+    "sources": [...],
+    "reasoning": [...],
+    "agent_id": "orchestrator",
+    "iterations": 4
+  },
+  "responding_agent": {
+    "id": "orchestrator",
+    "name": "Orchestrator",
+    "role": "orchestrator"
+  },
+  "participating_agents": [
+    {"id": "research", "name": "Research Agent", "role": "research"},
+    {"id": "code", "name": "Code Agent", "role": "code"}
+  ],
+  "session_messages": [...]
+}
+```
+
+---
+
+### Agent-to-Agent Communication
+```http
+POST /agents/orchestrator/sessions/{session_id}/agent-chat
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "from_agent_id": "research",
+  "to_agent_id": "code",
+  "message": "I found the motor specs. Can you calculate the torque needed?"
+}
+```
+
+This facilitates direct communication between agents within an orchestrator session.

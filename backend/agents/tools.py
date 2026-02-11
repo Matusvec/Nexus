@@ -416,17 +416,58 @@ def _text_summarize(text: str, max_length: int = 200) -> ToolResult:
 
 
 def _calculate(expression: str) -> ToolResult:
-    """Safely evaluate a mathematical expression."""
-    allowed_names = {
-        k: v
-        for k, v in math.__dict__.items()
-        if not k.startswith("_")
+    """Safely evaluate a mathematical expression using ast parsing."""
+    import ast
+    import operator
+
+    # Supported binary operations
+    _ops = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv,
+        ast.Mod: operator.mod,
+        ast.Pow: operator.pow,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
     }
-    allowed_names.update({"abs": abs, "round": round, "min": min, "max": max})
+
+    # Supported math functions
+    _funcs = {
+        "abs": abs, "round": round, "min": min, "max": max,
+        "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
+        "tan": math.tan, "log": math.log, "log10": math.log10,
+        "log2": math.log2, "exp": math.exp, "ceil": math.ceil,
+        "floor": math.floor, "pi": math.pi, "e": math.e,
+    }
+
+    def _eval_node(node: ast.AST) -> float:
+        if isinstance(node, ast.Expression):
+            return _eval_node(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.Name) and node.id in _funcs:
+            val = _funcs[node.id]
+            if isinstance(val, (int, float)):
+                return val
+            raise ValueError(f"'{node.id}' is a function, not a value")
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _ops:
+            return _ops[type(node.op)](_eval_node(node.operand))
+        if isinstance(node, ast.BinOp) and type(node.op) in _ops:
+            return _ops[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in _funcs:
+                fn = _funcs[node.func.id]
+                if callable(fn):
+                    args = [_eval_node(a) for a in node.args]
+                    return fn(*args)
+            raise ValueError(f"Unsupported function: {ast.dump(node.func)}")
+        raise ValueError(f"Unsupported expression: {ast.dump(node)}")
 
     try:
-        # Only allow safe math operations
-        result = eval(expression, {"__builtins__": {}}, allowed_names)  # noqa: S307
+        tree = ast.parse(expression, mode="eval")
+        result = _eval_node(tree)
         return ToolResult(output=f"{expression} = {result}", success=True)
     except Exception as e:
         return ToolResult(

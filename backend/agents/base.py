@@ -343,18 +343,25 @@ Provide your final answer now. Do not call any tools."""
         except (json.JSONDecodeError, TypeError):
             pass
 
-        # Try to find JSON in the response
-        import re
-
-        json_pattern = r'\{[^{}]*"tool"\s*:\s*"[^"]+"\s*,\s*"args"\s*:\s*\{[^{}]*\}[^{}]*\}'
-        matches = re.findall(json_pattern, response)
-        for match in matches:
-            try:
-                parsed = json.loads(match)
-                if "tool" in parsed and "args" in parsed:
-                    return parsed
-            except (json.JSONDecodeError, TypeError):
-                continue
+        # Try to find a JSON object in the response using brace matching
+        start = response.find("{")
+        while start != -1:
+            depth = 0
+            for i in range(start, len(response)):
+                if response[i] == "{":
+                    depth += 1
+                elif response[i] == "}":
+                    depth -= 1
+                if depth == 0:
+                    candidate = response[start : i + 1]
+                    try:
+                        parsed = json.loads(candidate)
+                        if isinstance(parsed, dict) and "tool" in parsed and "args" in parsed:
+                            return parsed
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                    break
+            start = response.find("{", start + 1)
 
         return None
 

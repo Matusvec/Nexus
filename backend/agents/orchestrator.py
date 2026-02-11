@@ -279,11 +279,12 @@ Rules:
             message_type="delegation",
         )
 
+        # Filter to valid agent IDs
+        valid_ids = [aid for aid in agent_ids if aid in self.agents]
+
         # Collect responses from each agent
         agent_responses = {}
-        for aid in agent_ids:
-            if aid not in self.agents:
-                continue
+        for aid in valid_ids:
             agent = self.agents[aid]
             if aid not in session.participating_agents:
                 session.participating_agents.append(aid)
@@ -292,9 +293,7 @@ Rules:
                 "session_transcript": session.get_transcript(last_n=10),
                 "session_id": session.id,
                 "collaboration_mode": True,
-                "other_agents": [
-                    a for a in agent_ids if a != aid and a in self.agents
-                ],
+                "other_agents": [a for a in valid_ids if a != aid],
             }
             resp = agent.run(message, self.tool_registry, context=context)
             agent_responses[aid] = resp
@@ -365,8 +364,7 @@ Synthesize a comprehensive answer that:
             },
             "participating_agents": [
                 {"id": aid, "name": self.agents[aid].name, "role": self.agents[aid].role.value}
-                for aid in agent_ids
-                if aid in self.agents
+                for aid in valid_ids
             ],
             "session_messages": [m.to_dict() for m in session.messages[-20:]],
         }
