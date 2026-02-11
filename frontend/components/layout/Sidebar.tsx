@@ -14,6 +14,7 @@ import {
   Search,
   Plus,
   Command,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,12 @@ const navItems = [
     icon: FileText,
     label: "Documents",
     shortcut: "⌘2",
+  },
+  {
+    href: "/agents",
+    icon: Bot,
+    label: "AI Agents",
+    shortcut: "⌘3",
   },
 ];
 

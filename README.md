@@ -66,14 +66,35 @@ Max: "I need you to measure the shaft diameter. Here's how:
 - **Upload interface** for human responses (files, photos, data)
 - **Workflow continuity** - agent resumes after human completes task
 
-### 5. Agentic Tool Use
-Agents use tools autonomously (not dumb classification):
-- `query_group(group_id, query, layer)` - RAPTOR retrieval
-- `get_connected_groups(group_id)` - Navigate mind map
-- `search_all_groups(query)` - Find relevant specialists
-- `request_human_task(task_spec)` - Delegate physical work
-- `suggest_connection(group_a, group_b, reason)` - Propose links
-- Future: `web_search()`, `run_calculation()`, `generate_visualization()`
+### 5. Agentic AI System
+Nexus includes a full agentic AI framework with specialized agents and an orchestrator:
+
+**Built-in Agents:**
+| Agent | Role | Tools | Description |
+|-------|------|-------|-------------|
+| **Research Agent** | Research Specialist | `rag_search`, `rag_tree_search`, `document_list`, `document_summary`, `text_summarize`, `extract_entities` | Deep RAG knowledge base search with cited answers |
+| **Web Search Agent** | Web Researcher | `web_search`, `youtube_search`, `rag_search`, `text_summarize` | Finds current information from web & YouTube |
+| **Code Agent** | Code Specialist | `rag_search`, `calculate`, `web_search`, `text_summarize` | Code analysis, debugging, math, and technical help |
+| **Document Agent** | Document Analyst | `rag_search`, `rag_tree_search`, `document_list`, `document_summary`, `extract_entities`, `text_summarize` | In-depth document analysis across RAG hierarchy layers |
+
+**Custom Agents:** Create your own agents with custom system prompts, tool selections, and personality. Configure temperature, max reasoning iterations, and tool access.
+
+**Orchestrator:** A master agent that coordinates all sub-agents:
+- Automatically routes queries to the best-suited agent
+- Engages multiple agents for complex multi-domain tasks
+- Facilitates agent-to-agent communication in a shared workspace
+- Synthesizes responses from multiple agent perspectives
+
+**9 Built-in Tools:**
+- `rag_search` - Search the full T-Retriever RAG hierarchy
+- `rag_tree_search` - Search specific layers (Layer 0 = details, Layer 1+ = summaries)
+- `document_list` - List all documents in knowledge base
+- `document_summary` - Get document stats and summaries
+- `web_search` - Search the web for current information
+- `youtube_search` - Find relevant YouTube content
+- `text_summarize` - LLM-powered text summarization
+- `calculate` - Safe mathematical expression evaluation
+- `extract_entities` - Extract key entities and concepts from text
 
 ### 7. Interactive Learning Mode
 
