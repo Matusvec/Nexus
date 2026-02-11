@@ -398,8 +398,8 @@ class TestScenarios:
             situation="ambiguous requirements with multiple approaches",
         )
         result = kernel.evaluate(plan)
-        assert result.decision in (Decision.ESCALATE, Decision.BLOCK), (
-            f"Expected ESCALATE or BLOCK, got {result.decision}"
+        assert result.decision == Decision.ESCALATE, (
+            f"Expected ESCALATE (3 assumptions triggers hard-stop), got {result.decision}"
         )
 
     def test_scenario_contract_modification_without_marker_blocked(self):
@@ -417,10 +417,9 @@ class TestScenarios:
             action_description="edit test files",
         )
         result = kernel.evaluate(plan)
-        # Should be blocked because contracts/openapi.yaml isn't in write globs
-        # AND contract guard blocks it without marker
-        assert result.decision in (Decision.BLOCK, Decision.ESCALATE), (
-            f"Expected BLOCK or ESCALATE, got {result.decision}"
+        # Blocked because contracts/openapi.yaml isn't in write globs
+        assert result.decision == Decision.BLOCK, (
+            f"Expected BLOCK (permission denied on contract file), got {result.decision}"
         )
 
     def test_scenario_low_risk_within_scope_allowed(self):
