@@ -5,6 +5,7 @@ in the T-Retriever hierarchical RAG system.
 Provides a unified lifecycle for documents:
   add_document   : parse → chunk → contextualize → store → build tree
   remove_document: delete all layers + graph metadata + cache cleanup
+  incremental_remove_chunks: remove specific chunks with localized tree repair
   list_documents : enumerate documents with tree status
   rebuild_document_tree: re-cluster and re-summarize existing chunks
 """
@@ -23,7 +24,16 @@ from t_retriever import (
     get_tree_stats,
     save_document_graph,
     get_document_graph,
+    resummarize_node,
     _document_graphs,
+    MIN_CLUSTER_SIZE,
+)
+from tree_index import (
+    get_document_index,
+    load_document_index,
+    save_document_index,
+    _document_indices,
+    MIN_CLUSTER_SIZE_AFTER_DELETE,
 )
 
 
@@ -181,11 +191,156 @@ def remove_document(
     if document_id in _document_graphs:
         del _document_graphs[document_id]
 
+    # 5. Clear tree index cache
+    if document_id in _document_indices:
+        del _document_indices[document_id]
+
     print(f"[REMOVE] Document '{document_id}' fully removed ({total} items).")
     return {
         "document_id": document_id,
         "deleted_chunks": total,
         "deleted_graph": graph_deleted,
+    }
+
+
+# ============================================================================
+# INCREMENTAL CHUNK REMOVAL (localized tree repair)
+# ============================================================================
+
+def incremental_remove_chunks(
+    document_id: str,
+    chunk_ids: List[str],
+    collection_name: str = "nexus_chunks",
+) -> Dict:
+    """
+    Remove specific chunks with localized tree repair.
+
+    Instead of rebuilding the whole tree, this function:
+    1. Tombstones each chunk in the membership index
+    2. Removes the chunk from ChromaDB
+    3. Removes it from its parent's child list
+    4. If the parent cluster becomes too small, merges with nearest sibling
+    5. Re-summarizes only affected parents
+    6. Propagates changes up only the ancestor chain
+    7. Triggers background compaction if dirty threshold is exceeded
+
+    Returns:
+        Dict with deleted_count, repaired_summaries, compacted info.
+    """
+    collection = get_or_create_collection(collection_name)
+    tree_idx = load_document_index(document_id, collection_name)
+
+    deleted_count = 0
+    repaired_summaries: List[str] = []
+    merged_clusters: List[str] = []
+
+    for cid in chunk_ids:
+        # 1. Tombstone in index
+        tree_idx.mark_tombstone(cid)
+
+        # 2. Delete from ChromaDB
+        try:
+            collection.delete(ids=[cid])
+            deleted_count += 1
+        except Exception:
+            pass
+
+        # 3. Remove from parent's child list; get parent_id
+        parent_id = tree_idx.remove_child_from_parent(cid)
+        if not parent_id:
+            continue
+
+        # 4. Check cluster size
+        siblings = tree_idx.get_cluster_siblings(cid)
+        remaining_children = [
+            c for c in tree_idx.membership.get(parent_id, {}).get("children", [])
+            if not tree_idx.is_tombstoned(c)
+        ]
+
+        if len(remaining_children) < MIN_CLUSTER_SIZE_AFTER_DELETE and len(remaining_children) > 0:
+            # Cluster is too small — try to merge children into nearest sibling cluster
+            # Collect embeddings for nearest-sibling lookup
+            emb_lookup: Dict[str, list] = {}
+            try:
+                parent_entry = tree_idx.membership.get(parent_id, {})
+                parent_layer = parent_entry.get("layer", 1)
+                sibling_candidates = [
+                    nid for nid, m in tree_idx.membership.items()
+                    if m["layer"] == parent_layer
+                    and nid != parent_id
+                    and not tree_idx.is_tombstoned(nid)
+                ]
+                if sibling_candidates:
+                    sib_results = collection.get(
+                        ids=sibling_candidates + [parent_id],
+                        include=["embeddings"],
+                    )
+                    for sid, emb in zip(sib_results["ids"], sib_results["embeddings"]):
+                        if emb is not None:
+                            emb_lookup[sid] = emb
+            except Exception:
+                pass
+
+            nearest = tree_idx.find_nearest_sibling_cluster(parent_id, emb_lookup)
+            if nearest and nearest in tree_idx.membership:
+                # Move remaining children to the sibling cluster
+                for child_id in remaining_children:
+                    tree_idx.set_parent(child_id, nearest)
+                    tree_idx.membership[nearest].setdefault("children", []).append(child_id)
+                # Mark old parent for removal
+                tree_idx.mark_tombstone(parent_id)
+                try:
+                    collection.delete(ids=[parent_id])
+                except Exception:
+                    pass
+                merged_clusters.append(parent_id)
+                # Re-summarize the sibling that absorbed the children
+                resummarize_node(nearest, document_id, collection_name)
+                repaired_summaries.append(nearest)
+                # Propagate up the sibling's ancestor chain
+                for ancestor_id in tree_idx.ancestor_chain(nearest):
+                    if tree_idx.is_tombstoned(ancestor_id):
+                        continue
+                    resummarize_node(ancestor_id, document_id, collection_name)
+                    repaired_summaries.append(ancestor_id)
+                continue
+
+        # 5. Re-summarize the parent from remaining children
+        if remaining_children:
+            resummarize_node(parent_id, document_id, collection_name)
+            repaired_summaries.append(parent_id)
+
+            # 6. Propagate up the ancestor chain
+            for ancestor_id in tree_idx.ancestor_chain(parent_id):
+                if tree_idx.is_tombstoned(ancestor_id):
+                    continue
+                resummarize_node(ancestor_id, document_id, collection_name)
+                repaired_summaries.append(ancestor_id)
+        else:
+            # Parent has no children left — tombstone it too
+            tree_idx.mark_tombstone(parent_id)
+            try:
+                collection.delete(ids=[parent_id])
+            except Exception:
+                pass
+
+    # 7. Background compaction check
+    compacted = False
+    if tree_idx.needs_compaction:
+        n_dirty = tree_idx.compact()
+        compacted = True
+        print(f"[COMPACT] Compacted {n_dirty} dirty nodes; tree_version={tree_idx.tree_version}")
+
+    # Persist updated index
+    save_document_index(document_id, collection_name)
+
+    return {
+        "document_id": document_id,
+        "deleted_count": deleted_count,
+        "repaired_summaries": repaired_summaries,
+        "merged_clusters": merged_clusters,
+        "compacted": compacted,
+        "tree_version": tree_idx.tree_version,
     }
 
 

@@ -948,8 +948,11 @@ def build_layer_tretriever(
     """
     Build one layer of the T-Retriever tree
     
-    Entity-aware clustering + entity-preserving summarization
+    Entity-aware clustering + entity-preserving summarization.
+    Also populates the TreeIndex membership for incremental updates.
     """
+    from tree_index import get_document_index
+
     print(f"\n[BUILD] Building layer {current_layer + 1} from layer {current_layer}...")
 
     # Get chunks at current layer
@@ -1013,6 +1016,24 @@ def build_layer_tretriever(
     summary_ids = store_chunks_with_entities(
         summaries, document_id, current_layer + 1, collection_name
     )
+
+    # --- Populate membership index ---
+    tree_idx = get_document_index(document_id)
+    for sid, summary in zip(summary_ids, summaries):
+        child_ids = summary.get("child_ids", [])
+        cluster_label = summary.get("cluster_id", "")
+        tree_idx.register_node(
+            sid,
+            layer=current_layer + 1,
+            cluster_id=cluster_label,
+            children=list(child_ids),
+        )
+        # Link children → parent
+        for cid in child_ids:
+            tree_idx.set_parent(cid, sid)
+            # Ensure leaf nodes are registered if not already
+            if cid not in tree_idx.membership:
+                tree_idx.register_node(cid, layer=current_layer, cluster_id=cluster_label)
     
     print(f"   [OK] Created {len(summary_ids)} summaries at layer {current_layer + 1}")
     
@@ -1093,6 +1114,13 @@ def build_tretriever_tree(
     # Build entity graph from base chunks
     print(f"\nBuilding entity graph...")
     graph = get_document_graph(document_id)
+
+    # Initialize tree index for base chunks
+    from tree_index import get_document_index, save_document_index
+    tree_idx = get_document_index(document_id)
+    for cid in chunk_ids:
+        if cid not in tree_idx.membership:
+            tree_idx.register_node(cid, layer=0)
     
     # Get embeddings if needed
     if embeddings is None or len(embeddings) == 0:
@@ -1141,6 +1169,9 @@ def build_tretriever_tree(
     
     # Save graph
     save_document_graph(document_id, collection_name)
+
+    # Save tree index for incremental updates
+    save_document_index(document_id, collection_name)
     
     # Print summary
     print("\n" + "=" * 60)
@@ -1158,6 +1189,85 @@ def build_tretriever_tree(
     print("=" * 60)
     
     return stats
+
+
+# ============================================================================
+# LOCAL RE-SUMMARIZATION (for incremental updates)
+# ============================================================================
+
+def resummarize_node(
+    summary_id: str,
+    document_id: str,
+    collection_name: str = "nexus_chunks",
+) -> bool:
+    """Re-summarize a single summary node from its current children.
+
+    Called after a child has been removed.  Fetches the remaining children
+    from ChromaDB, regenerates the summary text and entities, and updates
+    the node in-place.
+
+    Returns True on success, False if the node has no remaining children.
+    """
+    from tree_index import get_document_index
+
+    collection = get_or_create_collection(collection_name)
+    tree_idx = get_document_index(document_id)
+
+    entry = tree_idx.membership.get(summary_id)
+    if not entry:
+        return False
+
+    child_ids = [
+        cid for cid in entry.get("children", [])
+        if not tree_idx.is_tombstoned(cid)
+    ]
+
+    if not child_ids:
+        return False
+
+    # Fetch child texts and entities
+    results = collection.get(ids=child_ids, include=["documents", "metadatas"])
+    if not results["ids"]:
+        return False
+
+    texts = results["documents"]
+    entities_list = []
+    for meta in results["metadatas"]:
+        entities_json = meta.get("entities", "[]")
+        try:
+            entities = json.loads(entities_json) if isinstance(entities_json, str) else entities_json
+        except Exception:
+            entities = []
+        entities_list.append(entities)
+
+    layer = entry["layer"]
+    summary_text, aggregated_entities = summarize_cluster_with_entities(
+        texts, entities_list, layer - 1
+    )
+
+    # Update the summary chunk in ChromaDB
+    new_embedding = get_embeddings([summary_text])[0]
+    collection.update(
+        ids=[summary_id],
+        documents=[summary_text],
+        embeddings=[new_embedding],
+        metadatas=[{
+            "document_id": document_id,
+            "layer": layer,
+            "is_summary": True,
+            "entities": json.dumps(aggregated_entities),
+            "entity_names": ",".join(e["name"] for e in aggregated_entities[:10]),
+            "token_count": count_tokens(summary_text),
+            "content_type": "summary",
+            "child_ids": ",".join(child_ids),
+        }],
+    )
+
+    # Update tree index children list
+    entry["children"] = child_ids
+    tree_idx.dirty_nodes.add(summary_id)
+
+    return True
 
 
 def delete_tree_layers(

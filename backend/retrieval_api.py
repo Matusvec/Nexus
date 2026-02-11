@@ -7,6 +7,7 @@ Decoupled from CLI and UI logic.
 Public functions:
     add_documents(paths, **kwargs) -> List[Dict]
     remove_documents(document_ids)  -> List[Dict]
+    remove_chunks(document_id, chunk_ids) -> Dict   # incremental
     query(question, **kwargs)       -> Dict
     explain_retrieval(question, **kwargs) -> Dict
     get_tree_info(document_id)      -> Dict
@@ -123,6 +124,37 @@ def remove_documents(
         result = _remove(doc_id, collection_name=collection_name)
         results.append(result)
     return results
+
+
+# ============================================================================
+# REMOVE CHUNKS (incremental — no full tree rebuild)
+# ============================================================================
+
+def remove_chunks(
+    document_id: str,
+    chunk_ids: List[str],
+    *,
+    collection_name: str = "nexus_chunks",
+) -> Dict:
+    """
+    Incrementally remove specific chunks with localized tree repair.
+
+    Unlike ``remove_documents`` this does NOT rebuild the entire tree.
+    Only affected clusters are repaired and re-summarised.
+
+    Args:
+        document_id:     Document the chunks belong to.
+        chunk_ids:       List of chunk IDs to remove.
+        collection_name: ChromaDB collection name.
+
+    Returns:
+        Dict with deleted_count, repaired_summaries, tree_version, etc.
+    """
+    from document_manager import incremental_remove_chunks
+
+    return incremental_remove_chunks(
+        document_id, chunk_ids, collection_name=collection_name
+    )
 
 
 # ============================================================================
