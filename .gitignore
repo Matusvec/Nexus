@@ -57,3 +57,33 @@ chroma_db/
 # ===== OS =====
 .DS_Store
 Thumbs.db
+
+# ===== Unity (xr-app) =====
+xr-app/[Ll]ibrary/
+xr-app/[Tt]emp/
+xr-app/[Oo]bj/
+xr-app/[Bb]uild/
+xr-app/[Bb]uilds/
+xr-app/[Ll]ogs/
+xr-app/[Uu]ser[Ss]ettings/
+xr-app/[Mm]emoryCaptures/
+xr-app/[Rr]ecordings/
+xr-app/Assets/Plugins/Editor/JetBrains*
+*.pidb
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+*.boostlog
+*.apk
+*.aab
+*.unitypackage
+crashlytics-buildid.txt
+xr-app/Assets/AssetStoreTools*
+xr-app/Assets/AddressableAssetsData*

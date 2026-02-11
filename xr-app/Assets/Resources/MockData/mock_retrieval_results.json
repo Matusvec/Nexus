@@ -1,0 +1,34 @@
+{
+  "query": "What is RAPTOR retrieval and how does it work?",
+  "response": {
+    "answer": "RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval) is a hierarchical RAG system that organizes documents into a multi-layer tree structure. Layer 0 contains raw document chunks, while higher layers contain progressively more abstract summaries created by clustering and summarizing related chunks. During retrieval, the collapsed tree strategy searches across all layers simultaneously to find the most relevant information regardless of abstraction level.",
+    "sources": [
+      {
+        "documentId": "doc_raptor_paper",
+        "documentName": "RAPTOR_Retrieval.pdf",
+        "chunkId": "chunk_raptor_014",
+        "content": "RAPTOR constructs a tree by recursively clustering and summarizing text chunks. At the lowest level, the tree contains the original text segments. Each subsequent level groups related segments and generates an abstractive summary.",
+        "layer": 0,
+        "relevanceScore": 0.95
+      },
+      {
+        "documentId": "doc_raptor_paper",
+        "documentName": "RAPTOR_Retrieval.pdf",
+        "chunkId": "chunk_raptor_032",
+        "content": "The collapsed tree retrieval strategy traverses all layers simultaneously, selecting the most relevant nodes regardless of their position in the hierarchy.",
+        "layer": 1,
+        "relevanceScore": 0.89
+      },
+      {
+        "documentId": "doc_raptor_paper",
+        "documentName": "RAPTOR_Retrieval.pdf",
+        "chunkId": "chunk_raptor_005",
+        "content": "Traditional RAG systems retrieve only from a flat collection of chunks. RAPTOR improves on this by enabling retrieval at multiple levels of abstraction.",
+        "layer": 0,
+        "relevanceScore": 0.84
+      }
+    ],
+    "queryType": "complex",
+    "tokensUsed": 1842
+  }
+}

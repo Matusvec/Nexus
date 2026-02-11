@@ -1,0 +1,54 @@
+{
+  "documents": [
+    {
+      "id": "doc_raptor_paper",
+      "filename": "RAPTOR_Retrieval.pdf",
+      "uploadedAt": "2026-01-15T09:00:00Z",
+      "fileSize": 2456000,
+      "chunkCount": 47,
+      "status": "ready",
+      "summary": "RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval. A hierarchical approach to RAG that builds multi-layer summaries for comprehensive question answering.",
+      "groupId": "group_research"
+    },
+    {
+      "id": "doc_motor_spec",
+      "filename": "BrushlessMotor_Spec_v2.pdf",
+      "uploadedAt": "2026-01-20T14:30:00Z",
+      "fileSize": 890000,
+      "chunkCount": 23,
+      "status": "ready",
+      "summary": "Technical specifications for a 48V brushless DC motor including torque curves, thermal limits, and mounting dimensions.",
+      "groupId": "group_engineering"
+    },
+    {
+      "id": "doc_physics_notes",
+      "filename": "QuantumTunneling_Lecture.pdf",
+      "uploadedAt": "2026-01-22T11:15:00Z",
+      "fileSize": 1200000,
+      "chunkCount": 35,
+      "status": "ready",
+      "summary": "Lecture notes on quantum tunneling phenomena including barrier penetration probability calculations.",
+      "groupId": "group_physics"
+    },
+    {
+      "id": "doc_api_design",
+      "filename": "REST_API_BestPractices.md",
+      "uploadedAt": "2026-02-01T16:00:00Z",
+      "fileSize": 45000,
+      "chunkCount": 12,
+      "status": "ready",
+      "summary": "Best practices for designing RESTful APIs including versioning, pagination, error handling.",
+      "groupId": "group_engineering"
+    },
+    {
+      "id": "doc_processing",
+      "filename": "NewUpload_InProgress.pdf",
+      "uploadedAt": "2026-02-10T23:00:00Z",
+      "fileSize": 3100000,
+      "chunkCount": 0,
+      "status": "processing",
+      "summary": "",
+      "groupId": ""
+    }
+  ]
+}
