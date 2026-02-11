@@ -209,6 +209,8 @@ export type AgentRoleType =
   | "code"
   | "web_search"
   | "document"
+  | "planner"
+  | "synthesis"
   | "custom"
   | "orchestrator";
 
@@ -324,6 +326,8 @@ export const AGENT_ROLES: Record<
   code: { label: "Code", icon: "💻", color: "#10B981" },
   web_search: { label: "Web Search", icon: "🌐", color: "#3B82F6" },
   document: { label: "Document", icon: "📄", color: "#F59E0B" },
+  planner: { label: "Planner", icon: "📋", color: "#14B8A6" },
+  synthesis: { label: "Synthesis", icon: "🧬", color: "#E11D48" },
   custom: { label: "Custom", icon: "⚙️", color: "#EC4899" },
   orchestrator: { label: "Orchestrator", icon: "🎯", color: "#6366F1" },
 };

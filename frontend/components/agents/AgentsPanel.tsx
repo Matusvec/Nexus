@@ -38,6 +38,8 @@ const roleIcons: Record<AgentRoleType, React.ReactNode> = {
   code: <Code className="w-5 h-5" />,
   web_search: <Globe className="w-5 h-5" />,
   document: <FileText className="w-5 h-5" />,
+  planner: <Zap className="w-5 h-5" />,
+  synthesis: <Wrench className="w-5 h-5" />,
   custom: <Settings className="w-5 h-5" />,
   orchestrator: <Users className="w-5 h-5" />,
 };
