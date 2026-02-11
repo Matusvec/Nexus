@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nexus.dev/schemas/agent_config.json",
+  "title": "Nexus Agent Configuration Schema",
+  "description": "Defines the configuration contract for creating or updating an agent in the Nexus agentic AI system. All branches (frontend, XR, HITL) should use this schema to validate agent configurations.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["name", "role", "system_prompt"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Human-readable agent name"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["research", "code", "web_search", "document", "planner", "synthesis", "custom", "orchestrator"],
+      "description": "Agent role type. Built-in roles have pre-configured defaults; 'custom' allows full user control."
+    },
+    "system_prompt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "System prompt defining the agent's behaviour, personality, and constraints"
+    },
+    "description": {
+      "type": "string",
+      "default": "",
+      "description": "Short description shown in the UI"
+    },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Allowed tool names. Empty array means all tools are available."
+    },
+    "model": {
+      "type": "string",
+      "default": "",
+      "description": "LLM model override. Empty string uses the system default."
+    },
+    "temperature": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 2.0,
+      "default": 0.7
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10,
+      "description": "Maximum ReAct reasoning loop iterations before forcing a final answer"
+    },
+    "memory_config": {
+      "type": "object",
+      "description": "Memory configuration for the agent",
+      "properties": {
+        "short_term_max_messages": {
+          "type": "integer",
+          "default": 20,
+          "description": "Max conversation history messages kept in context"
+        },
+        "persistent": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to persist agent memory across sessions (requires storage backend)"
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Agent permission boundaries",
+      "properties": {
+        "can_web_search": { "type": "boolean", "default": true },
+        "can_modify_files": { "type": "boolean", "default": false },
+        "can_execute_code": { "type": "boolean", "default": false },
+        "requires_hitl_approval": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, tool calls require HITL kernel approval before execution"
+        },
+        "max_tool_calls_per_turn": {
+          "type": "integer",
+          "default": 10,
+          "description": "Safety limit on tool calls per reasoning turn"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

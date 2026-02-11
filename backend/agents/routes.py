@@ -80,6 +80,43 @@ def create_agents_router(registry: AgentRegistry) -> APIRouter:
     router = APIRouter(prefix="/agents", tags=["agents"])
 
     # ------------------------------------------------------------------
+    # SYSTEM STATUS & OBSERVABILITY (must be before /{agent_id} catch-all)
+    # ------------------------------------------------------------------
+
+    @router.get("/status")
+    def agent_system_status():
+        """Get agentic system status including feature flags."""
+        from agents.adapters.retrieval_adapter import MOCK_MODE as ret_mock
+        from agents.adapters.hitl_adapter import ACTIVE_MODE as hitl_mode
+        return {
+            "agents_count": len(registry.agents),
+            "tools_count": len(registry.tool_registry.list_tool_names()),
+            "retrieval_mode": "mock" if ret_mock else "real",
+            "hitl_mode": hitl_mode,
+            "orchestrator_ready": registry.orchestrator is not None,
+        }
+
+    @router.get("/traces/recent")
+    def list_recent_traces():
+        """List recent execution traces."""
+        from agents.tracing import trace_store
+        return trace_store.list_recent()
+
+    @router.get("/traces/{trace_id}")
+    def get_trace(trace_id: str):
+        """Get a specific execution trace."""
+        from agents.tracing import trace_store
+        trace = trace_store.get(trace_id)
+        if not trace:
+            raise HTTPException(status_code=404, detail="Trace not found")
+        return trace.to_dict()
+
+    @router.get("/tools/list")
+    def list_tools():
+        """List all available tools."""
+        return registry.get_tools()
+
+    # ------------------------------------------------------------------
     # AGENT CRUD
     # ------------------------------------------------------------------
 
@@ -167,15 +204,6 @@ def create_agents_router(registry: AgentRegistry) -> APIRouter:
             raise HTTPException(status_code=404, detail="Agent not found")
         agent.clear_history()
         return {"success": True, "message": "History cleared"}
-
-    # ------------------------------------------------------------------
-    # TOOLS
-    # ------------------------------------------------------------------
-
-    @router.get("/tools/list")
-    def list_tools():
-        """List all available tools."""
-        return registry.get_tools()
 
     # ------------------------------------------------------------------
     # ORCHESTRATOR

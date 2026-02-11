@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nexus.dev/schemas/tool.json",
+  "title": "Nexus Tool Schema",
+  "description": "Defines the contract for tools in the Nexus agentic AI system. All tool implementations must conform to this schema. Frontend and XR branches should use this to render tool UIs and validate tool calls.",
+  "version": "1.0.0",
+  "definitions": {
+    "tool_parameter": {
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "float", "boolean", "object", "array"]
+        },
+        "description": { "type": "string" },
+        "required": { "type": "boolean", "default": true },
+        "default": {},
+        "enum": {
+          "type": "array",
+          "description": "If present, restricts allowed values"
+        }
+      }
+    },
+    "tool_definition": {
+      "type": "object",
+      "required": ["name", "description", "parameters", "category"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Unique tool identifier (snake_case)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description shown to the LLM and UI"
+        },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/tool_parameter" }
+        },
+        "category": {
+          "type": "string",
+          "enum": ["knowledge", "web", "analysis", "utility", "code", "workspace"],
+          "description": "Tool category for grouping in UI"
+        },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "requires_hitl": {
+              "type": "boolean",
+              "default": false,
+              "description": "If true, tool execution is gated by HITL kernel approval"
+            },
+            "side_effects": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether the tool modifies state (files, DB, etc.)"
+            },
+            "network_access": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether the tool makes network requests"
+            }
+          }
+        }
+      }
+    },
+    "tool_result": {
+      "type": "object",
+      "required": ["output", "success"],
+      "properties": {
+        "output": { "type": "string", "description": "Tool output text" },
+        "success": { "type": "boolean" },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "chunk_id": { "type": "string" },
+              "document_id": { "type": "string" },
+              "layer": { "type": "integer" },
+              "score": { "type": "number" },
+              "preview": { "type": "string" }
+            }
+          }
+        },
+        "metadata": { "type": "object" }
+      }
+    }
+  },
+  "type": "object",
+  "description": "The tool registry exposes an array of tool_definition objects via GET /agents/tools/list",
+  "properties": {
+    "tools": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/tool_definition" }
+    }
+  },
+  "examples": [
+    {
+      "name": "rag_query",
+      "description": "Search the T-Retrieval RAG hierarchy for relevant documents and chunks",
+      "parameters": [
+        { "name": "query", "type": "string", "description": "Search query", "required": true },
+        { "name": "top_k", "type": "integer", "description": "Number of results", "required": false, "default": 5 },
+        { "name": "document_id", "type": "string", "description": "Filter to specific document", "required": false }
+      ],
+      "category": "knowledge",
+      "permissions": { "requires_hitl": false, "side_effects": false, "network_access": false }
+    }
+  ]
+}

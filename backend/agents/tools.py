@@ -5,24 +5,23 @@ Tools follow a simple interface:
 - name: unique identifier
 - description: what the tool does (shown to LLM)
 - parameters: list of parameter definitions
+- permissions: HITL gating metadata
 - execute(**kwargs) -> ToolResult
 
-Built-in tools:
-- rag_search: Search the T-Retriever RAG hierarchy
-- rag_tree_search: Search specific layers of the RAG tree
-- web_search: Search the web (via API)
-- youtube_search: Search YouTube for relevant content
-- document_list: List available documents
-- document_summary: Get document summary
-- text_summarize: Summarize long text
-- calculate: Evaluate mathematical expressions
-- extract_entities: Extract key entities from text
+Built-in tools (12 total):
+  Knowledge:  rag_query, rag_explain, rag_tree_search, document_list, document_summary
+  Web:        web_search, youtube_search
+  Analysis:   text_summarize, extract_entities
+  Utility:    calculate
+  Code:       repo_inspect
+  Workspace:  workspace_notes
 """
 
 from __future__ import annotations
 
 import json
 import re
+import os
 import math
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable
@@ -67,6 +66,7 @@ class Tool:
         parameters: List[ToolParameter],
         fn: Callable[..., ToolResult],
         category: str = "general",
+        permissions: Optional[Dict[str, Any]] = None,
     ):
         self.name = name
         self.description = description
@@ -74,6 +74,11 @@ class Tool:
         self._parameters_raw = parameters
         self._fn = fn
         self.category = category
+        self.permissions = permissions or {
+            "requires_hitl": False,
+            "side_effects": False,
+            "network_access": False,
+        }
 
     def execute(self, **kwargs: Any) -> ToolResult:
         """Execute the tool with given arguments."""
@@ -89,6 +94,7 @@ class Tool:
             "description": self.description,
             "parameters": self.parameters,
             "category": self.category,
+            "permissions": self.permissions,
         }
 
 
@@ -141,174 +147,109 @@ class ToolRegistry:
 
 
 def _rag_search(query: str, top_k: int = 5, document_id: str = "") -> ToolResult:
-    """Search the RAG knowledge base using T-Retriever."""
-    try:
-        from t_query import collapsed_tree_retrieval
-        from storage import get_collection_stats
+    """Search the RAG knowledge base using the retrieval adapter."""
+    from agents.adapters.retrieval_adapter import query as retrieval_query
 
-        stats = get_collection_stats()
-        if stats["total_chunks"] == 0:
-            return ToolResult(
-                output="Knowledge base is empty. No documents have been uploaded yet.",
-                success=True,
-            )
+    results = retrieval_query(
+        query,
+        top_k=int(top_k),
+        document_id=document_id if document_id else None,
+    )
 
-        results = collapsed_tree_retrieval(
-            query=query,
-            document_id=document_id if document_id else None,
-            top_k=int(top_k),
+    if not results:
+        return ToolResult(output="No relevant results found.", success=True)
+
+    sources = []
+    output_lines = []
+    for i, r in enumerate(results[:int(top_k)], 1):
+        chunk_id = r.get("id", "unknown")
+        text = r.get("text", r.get("document", ""))[:500]
+        layer = r.get("layer", 0)
+        score = r.get("score", 0)
+        doc_id = r.get("document_id", "")
+
+        output_lines.append(
+            f"[{i}] (Layer {layer}, Score: {score:.3f}) {text}"
         )
+        sources.append({
+            "chunk_id": chunk_id,
+            "document_id": doc_id,
+            "layer": layer,
+            "score": score,
+            "preview": text[:200],
+        })
 
-        if not results:
-            return ToolResult(output="No relevant results found.", success=True)
-
-        sources = []
-        output_lines = []
-        for i, r in enumerate(results[:int(top_k)], 1):
-            chunk_id = r.get("id", "unknown")
-            text = r.get("text", r.get("document", ""))[:500]
-            layer = r.get("layer", 0)
-            score = r.get("score", 0)
-            doc_id = r.get("document_id", "")
-
-            output_lines.append(
-                f"[{i}] (Layer {layer}, Score: {score:.3f}) {text}"
-            )
-            sources.append(
-                {
-                    "chunk_id": chunk_id,
-                    "document_id": doc_id,
-                    "layer": layer,
-                    "score": score,
-                    "preview": text[:200],
-                }
-            )
-
-        return ToolResult(
-            output="\n\n".join(output_lines), success=True, sources=sources
-        )
-    except Exception as e:
-        return ToolResult(output=f"RAG search error: {str(e)}", success=False)
+    return ToolResult(
+        output="\n\n".join(output_lines), success=True, sources=sources
+    )
 
 
 def _rag_tree_search(
     query: str, layer: int = 0, top_k: int = 5, document_id: str = ""
 ) -> ToolResult:
-    """Search a specific layer of the RAG tree hierarchy."""
-    try:
-        from storage import get_or_create_collection
-        from embeddings import get_embedding
+    """Search a specific layer of the RAG tree hierarchy via the adapter."""
+    from agents.adapters.retrieval_adapter import query as retrieval_query
 
-        collection = get_or_create_collection()
-        query_emb = get_embedding(query)
+    results = retrieval_query(
+        query,
+        top_k=int(top_k),
+        document_id=document_id if document_id else None,
+        layer=int(layer),
+    )
 
-        where_filter: Dict[str, Any] = {"layer": int(layer)}
-        if document_id:
-            where_filter = {
-                "$and": [
-                    {"layer": int(layer)},
-                    {"document_id": document_id},
-                ]
-            }
-
-        results = collection.query(
-            query_embeddings=[query_emb],
-            n_results=int(top_k),
-            where=where_filter,
-        )
-
-        if not results["ids"][0]:
-            return ToolResult(
-                output=f"No results found at layer {layer}.", success=True
-            )
-
-        lines = []
-        sources = []
-        for i, (cid, doc, meta) in enumerate(
-            zip(results["ids"][0], results["documents"][0], results["metadatas"][0]),
-            1,
-        ):
-            preview = doc[:500]
-            lines.append(f"[{i}] {cid}: {preview}")
-            sources.append(
-                {
-                    "chunk_id": cid,
-                    "document_id": meta.get("document_id", ""),
-                    "layer": meta.get("layer", 0),
-                    "preview": preview[:200],
-                }
-            )
-
+    if not results:
         return ToolResult(
-            output="\n\n".join(lines), success=True, sources=sources
+            output=f"No results found at layer {layer}.", success=True
         )
-    except Exception as e:
-        return ToolResult(
-            output=f"Tree search error: {str(e)}", success=False
-        )
+
+    lines = []
+    sources = []
+    for i, r in enumerate(results, 1):
+        preview = r.get("text", r.get("document", ""))[:500]
+        cid = r.get("id", f"chunk_{i}")
+        lines.append(f"[{i}] {cid}: {preview}")
+        sources.append({
+            "chunk_id": cid,
+            "document_id": r.get("document_id", ""),
+            "layer": r.get("layer", 0),
+            "preview": preview[:200],
+        })
+
+    return ToolResult(
+        output="\n\n".join(lines), success=True, sources=sources
+    )
 
 
 def _document_list() -> ToolResult:
-    """List all documents in the knowledge base."""
-    try:
-        from storage import get_collection_stats, get_or_create_collection
+    """List all documents in the knowledge base via the adapter."""
+    from agents.adapters.retrieval_adapter import list_documents
 
-        stats = get_collection_stats()
-        if not stats["documents"]:
-            return ToolResult(output="No documents in the knowledge base.", success=True)
+    docs = list_documents()
+    if not docs:
+        return ToolResult(output="No documents in the knowledge base.", success=True)
 
-        collection = get_or_create_collection()
-        lines = []
-        for doc in stats["documents"]:
-            doc_results = collection.get(where={"document_id": doc})
-            lines.append(f"- {doc} ({len(doc_results['ids'])} chunks)")
-
-        return ToolResult(
-            output=f"Documents ({len(stats['documents'])}):\n" + "\n".join(lines),
-            success=True,
-        )
-    except Exception as e:
-        return ToolResult(output=f"Error listing documents: {str(e)}", success=False)
+    lines = [f"- {d.get('document_id', 'unknown')}" for d in docs]
+    return ToolResult(
+        output=f"Documents ({len(docs)}):\n" + "\n".join(lines),
+        success=True,
+    )
 
 
 def _document_summary(document_id: str) -> ToolResult:
-    """Get the summary and stats for a specific document."""
-    try:
-        from storage import get_or_create_collection
+    """Get the summary and stats for a specific document via the adapter."""
+    from agents.adapters.retrieval_adapter import get_document_summary
 
-        collection = get_or_create_collection()
-        results = collection.get(
-            where={"document_id": document_id},
-            include=["metadatas", "documents"],
-        )
-
-        if not results["ids"]:
-            return ToolResult(
-                output=f"Document '{document_id}' not found.", success=False
-            )
-
-        # Get summary from first chunk metadata
-        summary = ""
-        layers: Dict[int, int] = {}
-        for meta in results["metadatas"]:
-            if meta.get("doc_summary"):
-                summary = meta["doc_summary"]
-            layer = meta.get("layer", 0)
-            layers[layer] = layers.get(layer, 0) + 1
-
-        layer_info = ", ".join(
-            f"Layer {k}: {v} chunks" for k, v in sorted(layers.items())
-        )
-
-        output = f"Document: {document_id}\nChunks: {len(results['ids'])}\nLayers: {layer_info}"
-        if summary:
-            output += f"\nSummary: {summary}"
-
-        return ToolResult(output=output, success=True)
-    except Exception as e:
-        return ToolResult(
-            output=f"Error getting summary: {str(e)}", success=False
-        )
+    info = get_document_summary(document_id)
+    layers = info.get("layers", {})
+    layer_info = ", ".join(
+        f"Layer {k}: {v} chunks" for k, v in sorted(layers.items())
+    )
+    output = (
+        f"Document: {document_id}\n"
+        f"Chunks: {info.get('chunk_count', 0)}\n"
+        f"Layers: {layer_info or 'N/A'}"
+    )
+    return ToolResult(output=output, success=True)
 
 
 def _web_search(query: str, num_results: int = 5) -> ToolResult:
@@ -497,6 +438,75 @@ Text: {text[:3000]}"""
             output=f"Entity extraction error: {str(e)}", success=False
         )
 
+def _rag_explain(query: str, chunk_ids: str = "") -> ToolResult:
+    """Explain the retrieval path — why certain chunks were found."""
+    from agents.adapters.retrieval_adapter import explain as retrieval_explain
+
+    ids = [cid.strip() for cid in chunk_ids.split(",") if cid.strip()] if chunk_ids else []
+    result = retrieval_explain(query, ids)
+    output = (
+        f"Query entities: {result.get('query_entities', [])}\n"
+        f"Layer distribution: {result.get('layer_distribution', {})}\n"
+        f"Explanation: {result.get('explanation', 'N/A')}"
+    )
+    return ToolResult(output=output, success=True, metadata=result)
+
+
+def _repo_inspect(path: str = ".", pattern: str = "") -> ToolResult:
+    """Inspect repository files for code analysis. Read-only and scoped to the repo."""
+    import glob as glob_mod
+
+    # Scope to backend directory for safety
+    base = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    target = os.path.normpath(os.path.join(base, path))
+    if not target.startswith(base):
+        return ToolResult(output="Access denied: path outside repository.", success=False)
+
+    if os.path.isfile(target):
+        try:
+            with open(target, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read(8000)
+            return ToolResult(output=f"File: {path}\n```\n{content}\n```", success=True)
+        except Exception as e:
+            return ToolResult(output=f"Error reading {path}: {e}", success=False)
+    elif os.path.isdir(target):
+        if pattern:
+            files = glob_mod.glob(os.path.join(target, pattern))
+        else:
+            files = os.listdir(target)
+        listing = "\n".join(
+            f"  {'📁' if os.path.isdir(os.path.join(target, f)) else '📄'} {f}"
+            for f in sorted(files)[:50]
+        )
+        return ToolResult(output=f"Directory: {path}\n{listing}", success=True)
+    else:
+        return ToolResult(output=f"Path not found: {path}", success=False)
+
+
+# In-memory workspace notes store (shared across agents per session)
+_workspace_notes: Dict[str, str] = {}
+
+
+def _workspace_notes_fn(action: str = "list", key: str = "", value: str = "") -> ToolResult:
+    """Shared scratchpad for agents to coordinate during collaboration."""
+    if action == "set" and key:
+        _workspace_notes[key] = value
+        return ToolResult(output=f"Note '{key}' saved.", success=True)
+    elif action == "get" and key:
+        note = _workspace_notes.get(key, "")
+        if note:
+            return ToolResult(output=f"Note '{key}': {note}", success=True)
+        return ToolResult(output=f"Note '{key}' not found.", success=True)
+    elif action == "delete" and key:
+        _workspace_notes.pop(key, None)
+        return ToolResult(output=f"Note '{key}' deleted.", success=True)
+    else:
+        # List all notes
+        if not _workspace_notes:
+            return ToolResult(output="No workspace notes yet.", success=True)
+        lines = [f"- {k}: {v[:100]}" for k, v in _workspace_notes.items()]
+        return ToolResult(output=f"Workspace notes ({len(lines)}):\n" + "\n".join(lines), success=True)
+
 
 # ============================================================================
 # TOOL REGISTRATION
@@ -507,10 +517,12 @@ def create_default_registry() -> ToolRegistry:
     """Create a ToolRegistry populated with all built-in tools."""
     registry = ToolRegistry()
 
+    # ── Knowledge tools ───────────────────────────────────────
+
     registry.register(
         Tool(
-            name="rag_search",
-            description="Search the RAG knowledge base for relevant documents and chunks. Use this for any question about uploaded documents.",
+            name="rag_query",
+            description="Search the T-Retrieval RAG hierarchy for relevant documents and chunks. Use this for any question about uploaded documents.",
             parameters=[
                 ToolParameter("query", "string", "Search query"),
                 ToolParameter("top_k", "integer", "Number of results (default 5)", required=False, default=5),
@@ -521,13 +533,41 @@ def create_default_registry() -> ToolRegistry:
         )
     )
 
+    # Keep backward-compatible alias
+    registry.register(
+        Tool(
+            name="rag_search",
+            description="(Alias for rag_query) Search the RAG knowledge base.",
+            parameters=[
+                ToolParameter("query", "string", "Search query"),
+                ToolParameter("top_k", "integer", "Number of results", required=False, default=5),
+                ToolParameter("document_id", "string", "Filter to specific document", required=False, default=""),
+            ],
+            fn=_rag_search,
+            category="knowledge",
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="rag_explain",
+            description="Explain why certain chunks were retrieved — shows the retrieval path through the tree/graph hierarchy.",
+            parameters=[
+                ToolParameter("query", "string", "The query that produced the results"),
+                ToolParameter("chunk_ids", "string", "Comma-separated chunk IDs to explain", required=False, default=""),
+            ],
+            fn=_rag_explain,
+            category="knowledge",
+        )
+    )
+
     registry.register(
         Tool(
             name="rag_tree_search",
-            description="Search a specific layer of the RAG tree. Layer 0 = detailed chunks, higher layers = summaries. Useful for getting both detailed and high-level information.",
+            description="Search a specific layer of the RAG tree. Layer 0 = detailed chunks, higher layers = summaries.",
             parameters=[
                 ToolParameter("query", "string", "Search query"),
-                ToolParameter("layer", "integer", "Tree layer to search (0=base, 1+=summaries)", required=False, default=0),
+                ToolParameter("layer", "integer", "Tree layer (0=base, 1+=summaries)", required=False, default=0),
                 ToolParameter("top_k", "integer", "Number of results", required=False, default=5),
                 ToolParameter("document_id", "string", "Filter to specific document", required=False, default=""),
             ],
@@ -539,7 +579,7 @@ def create_default_registry() -> ToolRegistry:
     registry.register(
         Tool(
             name="document_list",
-            description="List all documents currently in the knowledge base with chunk counts.",
+            description="List all documents currently in the knowledge base.",
             parameters=[],
             fn=_document_list,
             category="knowledge",
@@ -558,6 +598,8 @@ def create_default_registry() -> ToolRegistry:
         )
     )
 
+    # ── Web tools ─────────────────────────────────────────────
+
     registry.register(
         Tool(
             name="web_search",
@@ -568,6 +610,7 @@ def create_default_registry() -> ToolRegistry:
             ],
             fn=_web_search,
             category="web",
+            permissions={"requires_hitl": False, "side_effects": False, "network_access": True},
         )
     )
 
@@ -581,8 +624,11 @@ def create_default_registry() -> ToolRegistry:
             ],
             fn=_youtube_search,
             category="web",
+            permissions={"requires_hitl": False, "side_effects": False, "network_access": True},
         )
     )
+
+    # ── Analysis tools ────────────────────────────────────────
 
     registry.register(
         Tool(
@@ -599,6 +645,20 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(
         Tool(
+            name="extract_entities",
+            description="Extract key entities (people, organizations, concepts, technical terms) from text.",
+            parameters=[
+                ToolParameter("text", "string", "Text to analyze"),
+            ],
+            fn=_extract_entities,
+            category="analysis",
+        )
+    )
+
+    # ── Utility tools ─────────────────────────────────────────
+
+    registry.register(
+        Tool(
             name="calculate",
             description="Evaluate a mathematical expression. Supports standard math functions (sin, cos, sqrt, log, etc.).",
             parameters=[
@@ -609,15 +669,34 @@ def create_default_registry() -> ToolRegistry:
         )
     )
 
+    # ── Code tools ────────────────────────────────────────────
+
     registry.register(
         Tool(
-            name="extract_entities",
-            description="Extract key entities (people, organizations, concepts, technical terms) from text.",
+            name="repo_inspect",
+            description="Inspect repository files and directories for code analysis. Read-only access scoped to the project.",
             parameters=[
-                ToolParameter("text", "string", "Text to analyze"),
+                ToolParameter("path", "string", "Relative path to inspect", required=False, default="."),
+                ToolParameter("pattern", "string", "Glob pattern for directory listing", required=False, default=""),
             ],
-            fn=_extract_entities,
-            category="analysis",
+            fn=_repo_inspect,
+            category="code",
+        )
+    )
+
+    # ── Workspace tools ───────────────────────────────────────
+
+    registry.register(
+        Tool(
+            name="workspace_notes",
+            description="Shared scratchpad for agent collaboration. Actions: 'set' (save a note), 'get' (read a note), 'delete' (remove a note), 'list' (show all notes).",
+            parameters=[
+                ToolParameter("action", "string", "One of: set, get, delete, list", required=False, default="list"),
+                ToolParameter("key", "string", "Note key/name", required=False, default=""),
+                ToolParameter("value", "string", "Note content (for 'set' action)", required=False, default=""),
+            ],
+            fn=_workspace_notes_fn,
+            category="workspace",
         )
     )
 

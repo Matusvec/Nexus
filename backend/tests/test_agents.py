@@ -10,6 +10,7 @@ Tests the core functionality without requiring external API keys:
 
 import json
 import math
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -56,6 +57,23 @@ mock_storage.get_collection_stats = MagicMock(return_value={
 })
 sys.modules["storage"] = mock_storage
 
+# Mock t_query (owned by T-retrieval branch)
+mock_tquery = types.ModuleType("t_query")
+mock_tquery.collapsed_tree_retrieval = MagicMock(return_value=[])
+mock_tquery.extract_query_entities = MagicMock(return_value=[])
+sys.modules["t_query"] = mock_tquery
+
+# Mock t_retriever
+mock_tretriever = types.ModuleType("t_retriever")
+mock_tretriever.EntityGraph = MagicMock()
+mock_tretriever.get_document_graph = MagicMock()
+mock_tretriever.load_document_graph = MagicMock()
+mock_tretriever.GRAPH_EXPANSION_HOPS = 2
+mock_tretriever.GRAPH_EXPANSION_TOP_K = 5
+mock_tretriever.TREE_RETRIEVAL_TOP_K = 10
+mock_tretriever.HYBRID_ALPHA = 0.5
+sys.modules["t_retriever"] = mock_tretriever
+
 # Mock utils
 mock_utils = types.ModuleType("utils")
 mock_utils.count_tokens = lambda text: len(text) // 4
@@ -67,6 +85,10 @@ mock_utils.extract_content_references = MagicMock(return_value={
     "has_tables": False,
 })
 sys.modules["utils"] = mock_utils
+
+# Force mock mode for adapters in tests
+os.environ["NEXUS_MOCK_RETRIEVAL"] = "1"
+os.environ["NEXUS_HITL_MODE"] = "dev"
 
 # Now import agent modules
 from agents.base import Agent, AgentConfig, AgentMessage, AgentResponse, AgentRole
@@ -182,7 +204,9 @@ class TestToolRegistry:
     def test_default_registry(self):
         reg = create_default_registry()
         names = reg.list_tool_names()
-        assert "rag_search" in names
+        assert "rag_query" in names
+        assert "rag_search" in names  # backward compat alias
+        assert "rag_explain" in names
         assert "web_search" in names
         assert "youtube_search" in names
         assert "calculate" in names
@@ -191,6 +215,8 @@ class TestToolRegistry:
         assert "text_summarize" in names
         assert "extract_entities" in names
         assert "document_summary" in names
+        assert "repo_inspect" in names
+        assert "workspace_notes" in names
 
 
 class TestCalculateTool:
@@ -458,12 +484,14 @@ class TestAgentRegistry:
 
     def test_default_agents(self):
         agents = self.registry.list_agents()
-        assert len(agents) >= 4
+        assert len(agents) >= 6  # research, web_search, code, document, planner, synthesis
         ids = [a["id"] for a in agents]
         assert "research" in ids
         assert "web_search" in ids
         assert "code" in ids
         assert "document" in ids
+        assert "planner" in ids
+        assert "synthesis" in ids
 
     def test_orchestrator_created(self):
         assert self.registry.orchestrator is not None
@@ -622,3 +650,158 @@ class TestAgentRoutes:
         resp = self.client.get("/agents/orchestrator/sessions")
         assert resp.status_code == 200
         assert len(resp.json()) >= 1
+
+    def test_system_status(self):
+        resp = self.client.get("/agents/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "agents_count" in data
+        assert "retrieval_mode" in data
+        assert "hitl_mode" in data
+        assert data["retrieval_mode"] == "mock"
+        assert data["hitl_mode"] == "dev"
+
+    def test_list_traces(self):
+        resp = self.client.get("/agents/traces/recent")
+        assert resp.status_code == 200
+
+
+# ============================================================================
+# ADAPTER TESTS
+# ============================================================================
+
+
+class TestRetrievalAdapter:
+    """Test the retrieval adapter in mock mode."""
+
+    def test_mock_query(self):
+        from agents.adapters.retrieval_adapter import query
+        results = query("test query", top_k=3)
+        assert len(results) > 0
+        assert "text" in results[0]
+        assert "score" in results[0]
+
+    def test_mock_explain(self):
+        from agents.adapters.retrieval_adapter import explain
+        result = explain("test", ["chunk_1", "chunk_2"])
+        assert "explanation" in result
+        assert "layer_distribution" in result
+
+    def test_mock_list_docs(self):
+        from agents.adapters.retrieval_adapter import list_documents
+        docs = list_documents()
+        assert len(docs) >= 1
+
+    def test_mock_doc_summary(self):
+        from agents.adapters.retrieval_adapter import get_document_summary
+        summary = get_document_summary("mock_doc")
+        assert "chunk_count" in summary
+
+
+class TestHITLAdapter:
+    """Test the HITL adapter in dev mode."""
+
+    def test_dev_mode_approves(self):
+        from agents.adapters.hitl_adapter import request_approval, ACTIVE_MODE
+        assert ACTIVE_MODE == "dev"
+        decision = request_approval("test_agent", "rag_query", {"query": "test"})
+        assert bool(decision) is True
+
+    def test_dev_mode_approves_side_effects(self):
+        from agents.adapters.hitl_adapter import request_approval
+        decision = request_approval(
+            "test_agent", "file_write", {"path": "test"},
+            {"side_effects": True},
+        )
+        assert bool(decision) is True  # dev mode auto-approves
+
+
+# ============================================================================
+# TRACING TESTS
+# ============================================================================
+
+
+class TestTracing:
+    def test_create_trace(self):
+        from agents.tracing import Trace
+        trace = Trace(session_id="s1", user_message="test query")
+        assert trace.trace_id
+        assert trace.session_id == "s1"
+
+    def test_trace_spans(self):
+        from agents.tracing import Trace
+        trace = Trace(user_message="test")
+        span = trace.new_span("rag_query", "tool_call", agent_id="research")
+        span.finish(output_summary="found 3 results")
+        assert len(trace.spans) == 1
+        assert trace.spans[0].duration_ms >= 0
+
+    def test_trace_to_dict(self):
+        from agents.tracing import Trace
+        trace = Trace(user_message="test")
+        trace.set_plan({"steps": ["search", "synthesize"]})
+        span = trace.new_span("llm", "llm_call")
+        span.finish("got response")
+        d = trace.to_dict()
+        assert d["plan"] == {"steps": ["search", "synthesize"]}
+        assert d["total_spans"] == 1
+
+    def test_trace_store(self):
+        from agents.tracing import TraceStore, Trace
+        store = TraceStore(max_traces=5)
+        for i in range(7):
+            store.store(Trace(user_message=f"q{i}"))
+        assert len(store.list_recent()) == 5
+
+    def test_trace_summary(self):
+        from agents.tracing import Trace
+        trace = Trace(user_message="what is gravity?")
+        span = trace.new_span("rag_query", "tool_call", agent_id="research")
+        span.finish("found info")
+        trace.final_output = "Gravity is..."
+        summary = trace.summary()
+        assert "what is gravity?" in summary
+        assert "rag_query" in summary
+
+
+# ============================================================================
+# NEW TOOLS TESTS
+# ============================================================================
+
+
+class TestNewTools:
+    def test_rag_explain_tool(self):
+        from agents.tools import create_default_registry
+        reg = create_default_registry()
+        result = reg.execute("rag_explain", {"query": "test", "chunk_ids": "c1,c2"})
+        assert result.success
+        assert "Explanation" in result.output
+
+    def test_repo_inspect_tool(self):
+        from agents.tools import create_default_registry
+        reg = create_default_registry()
+        result = reg.execute("repo_inspect", {"path": ".", "pattern": ""})
+        assert result.success
+        assert "Directory" in result.output
+
+    def test_workspace_notes_tool(self):
+        from agents.tools import create_default_registry, _workspace_notes as notes
+        notes.clear()
+        reg = create_default_registry()
+
+        # Set a note
+        result = reg.execute("workspace_notes", {"action": "set", "key": "test_key", "value": "hello"})
+        assert result.success
+
+        # Get it back
+        result = reg.execute("workspace_notes", {"action": "get", "key": "test_key"})
+        assert "hello" in result.output
+
+        # List notes
+        result = reg.execute("workspace_notes", {"action": "list"})
+        assert "test_key" in result.output
+
+        # Delete
+        result = reg.execute("workspace_notes", {"action": "delete", "key": "test_key"})
+        assert result.success
+        notes.clear()

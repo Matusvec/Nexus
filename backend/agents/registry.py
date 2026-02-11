@@ -35,7 +35,7 @@ _DEFAULT_AGENTS: List[AgentConfig] = [
             "Cite your sources with chunk IDs when possible."
         ),
         description="Searches the RAG knowledge base, synthesizes findings, and provides cited answers",
-        tools=["rag_search", "rag_tree_search", "document_list", "document_summary", "text_summarize", "extract_entities"],
+        tools=["rag_query", "rag_tree_search", "rag_explain", "document_list", "document_summary", "text_summarize", "extract_entities"],
     ),
     AgentConfig(
         name="Web Search Agent",
@@ -47,7 +47,7 @@ _DEFAULT_AGENTS: List[AgentConfig] = [
             "Cross-reference web findings with the local knowledge base when relevant."
         ),
         description="Searches the web and YouTube for current information, articles, and videos",
-        tools=["web_search", "youtube_search", "rag_search", "text_summarize"],
+        tools=["web_search", "youtube_search", "rag_query", "text_summarize"],
     ),
     AgentConfig(
         name="Code Agent",
@@ -55,12 +55,12 @@ _DEFAULT_AGENTS: List[AgentConfig] = [
         system_prompt=(
             "You are a code specialist AI agent. You help with programming questions, "
             "code analysis, debugging, and technical implementations. "
-            "You can search the knowledge base for code-related documents and "
+            "You can inspect repository code, search the knowledge base, and "
             "perform calculations for algorithm analysis. "
             "Provide code examples with explanations."
         ),
         description="Assists with code analysis, debugging, and technical implementations",
-        tools=["rag_search", "calculate", "web_search", "text_summarize"],
+        tools=["rag_query", "repo_inspect", "calculate", "web_search", "text_summarize"],
     ),
     AgentConfig(
         name="Document Agent",
@@ -72,7 +72,33 @@ _DEFAULT_AGENTS: List[AgentConfig] = [
             "both high-level summaries and detailed specifics."
         ),
         description="Analyzes documents in-depth, navigates the RAG hierarchy for detailed and summary information",
-        tools=["rag_search", "rag_tree_search", "document_list", "document_summary", "extract_entities", "text_summarize"],
+        tools=["rag_query", "rag_tree_search", "rag_explain", "document_list", "document_summary", "extract_entities", "text_summarize"],
+    ),
+    AgentConfig(
+        name="Planner Agent",
+        role=AgentRole.PLANNER,
+        system_prompt=(
+            "You are a task decomposition specialist. When given a complex task, "
+            "you break it into clear, actionable sub-tasks. For each sub-task, "
+            "identify which specialist agent should handle it and what tools are needed. "
+            "Output a structured plan. Use workspace_notes to record your plan so "
+            "other agents can reference it."
+        ),
+        description="Decomposes complex tasks into sub-tasks and assigns them to specialist agents",
+        tools=["rag_query", "document_list", "workspace_notes", "text_summarize"],
+    ),
+    AgentConfig(
+        name="Synthesis Agent",
+        role=AgentRole.SYNTHESIS,
+        system_prompt=(
+            "You are a synthesis specialist. You take inputs from multiple agents, "
+            "resolve contradictions, merge overlapping information, and produce a "
+            "clear, well-structured final answer. Always cite sources with chunk IDs "
+            "or URLs when available. Read workspace_notes to incorporate findings "
+            "from other agents."
+        ),
+        description="Synthesizes inputs from multiple agents into coherent, well-cited final answers",
+        tools=["rag_query", "workspace_notes", "text_summarize", "extract_entities"],
     ),
 ]
 

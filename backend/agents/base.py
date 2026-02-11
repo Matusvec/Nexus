@@ -22,6 +22,8 @@ class AgentRole(str, Enum):
     CODE = "code"
     WEB_SEARCH = "web_search"
     DOCUMENT = "document"
+    PLANNER = "planner"
+    SYNTHESIS = "synthesis"
     CUSTOM = "custom"
     ORCHESTRATOR = "orchestrator"
 
@@ -142,6 +144,7 @@ class Agent:
         user_message: str,
         tool_registry: Any,
         context: Optional[Dict[str, Any]] = None,
+        trace: Optional[Any] = None,
     ) -> AgentResponse:
         """
         Execute the agent's reasoning loop for a user message.
@@ -150,6 +153,7 @@ class Agent:
             user_message: The user's input
             tool_registry: ToolRegistry instance with available tools
             context: Optional additional context (e.g. document_id)
+            trace: Optional Trace object for observability
 
         Returns:
             AgentResponse with final answer and metadata
@@ -183,8 +187,19 @@ class Agent:
                 iteration=iteration,
             )
 
+            # Trace: LLM call
+            llm_span = None
+            if trace:
+                llm_span = trace.new_span(
+                    f"llm_call_iter_{iteration}", "llm_call", agent_id=self.id,
+                    input_summary=user_message[:120],
+                )
+
             # Call LLM
             llm_response = generate_content(prompt)
+
+            if llm_span:
+                llm_span.finish(output_summary=llm_response[:200])
 
             # Check if the LLM wants to call a tool
             tool_call = self._parse_tool_call(llm_response)
@@ -196,8 +211,45 @@ class Agent:
                     f"Calling tool: {tool_name}({json.dumps(tool_args, default=str)})"
                 )
 
+                # HITL gating
+                from agents.adapters.hitl_adapter import request_approval, report_tool_result
+                tool_obj = tool_registry.get(tool_name)
+                tool_perms = tool_obj.permissions if tool_obj else {}
+                approval = request_approval(self.id, tool_name, tool_args, tool_perms)
+
+                if not approval:
+                    reasoning_steps.append(
+                        f"Tool {tool_name} blocked by HITL: {approval.reason}"
+                    )
+                    accumulated_context += (
+                        f"\n\n[Tool: {tool_name}] BLOCKED: {approval.reason}"
+                    )
+                    continue
+
+                # Use modified args if HITL altered them
+                if approval.modified_args:
+                    tool_args = approval.modified_args
+
+                # Trace: tool call
+                tool_span = None
+                if trace:
+                    tool_span = trace.new_span(
+                        tool_name, "tool_call", agent_id=self.id,
+                        input_summary=json.dumps(tool_args, default=str)[:200],
+                    )
+
                 # Execute tool
                 result = tool_registry.execute(tool_name, tool_args)
+
+                # Report result to HITL
+                report_tool_result(self.id, tool_name, result.success, str(result.output)[:200])
+
+                if tool_span:
+                    tool_span.finish(
+                        output_summary=str(result.output)[:200],
+                        error="" if result.success else str(result.output)[:200],
+                    )
+
                 tool_calls_log.append(
                     {
                         "tool": tool_name,
