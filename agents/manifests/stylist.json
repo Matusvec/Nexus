@@ -1,0 +1,42 @@
+{
+  "agent_id": "stylist",
+  "description": "Stylist agent — manages design tokens, themes, CSS architecture, and visual consistency",
+  "allowed_file_globs": {
+    "read": ["frontend/**", "**/*.css", "**/*.scss", "**/*.json", "contracts/design_tokens.*"],
+    "write": ["frontend/**/*.css", "frontend/**/*.scss", "frontend/tailwind.config.*", "frontend/postcss.config.*"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "web_search"],
+  "can": [
+    "update CSS styles",
+    "configure Tailwind themes",
+    "manage design tokens",
+    "create style utilities",
+    "ensure visual consistency"
+  ],
+  "cannot": [
+    "modify JavaScript logic",
+    "change API endpoints",
+    "modify backend code",
+    "alter database schemas"
+  ],
+  "requires_human_for": [
+    "design system overhauls",
+    "brand color changes",
+    "typography scale changes",
+    "breaking design token changes"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "design token contract changes",
+      "global theme restructuring"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.40,
+      "impact_score": 0.6
+    }
+  },
+  "verification_steps": [
+    "visual regression check",
+    "validate design token consistency"
+  ]
+}

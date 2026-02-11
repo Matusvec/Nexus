@@ -1,0 +1,46 @@
+{
+  "agent_id": "cybersecurity",
+  "description": "Cybersecurity agent — manages security audits, vulnerability scanning, and security policy enforcement",
+  "allowed_file_globs": {
+    "read": ["**/*"],
+    "write": ["security/**", "docs/security/**", "**/.gitignore"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "shell_exec", "web_search", "api_call"],
+  "can": [
+    "audit code for vulnerabilities",
+    "review security configurations",
+    "update security documentation",
+    "scan for exposed secrets",
+    "recommend security improvements"
+  ],
+  "cannot": [
+    "modify application business logic",
+    "change database schemas",
+    "alter API contracts",
+    "deploy to production"
+  ],
+  "requires_human_for": [
+    "security policy changes",
+    "incident response decisions",
+    "credential rotation",
+    "security architecture changes",
+    "vulnerability disclosure"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "active security incident",
+      "exposed credentials or secrets",
+      "critical vulnerability discovered",
+      "PII exposure"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.25,
+      "impact_score": 0.5
+    }
+  },
+  "verification_steps": [
+    "run security scan",
+    "validate no exposed secrets",
+    "check dependency vulnerabilities"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "agent_id": "database",
+  "description": "Database agent — manages schemas, migrations, queries, and data integrity",
+  "allowed_file_globs": {
+    "read": ["**/*.py", "**/*.sql", "**/*.json", "contracts/**", "backend/**"],
+    "write": ["backend/migrations/**", "backend/models/**", "backend/storage.py", "contracts/schema.*"]
+  },
+  "allowed_tools": ["file_edit", "db_query", "llm_call", "shell_exec"],
+  "can": [
+    "create database migrations",
+    "optimize queries",
+    "design schemas",
+    "manage indexes",
+    "update storage layer code"
+  ],
+  "cannot": [
+    "drop production databases",
+    "modify authentication logic",
+    "change API endpoints",
+    "modify frontend code"
+  ],
+  "requires_human_for": [
+    "destructive migrations (DROP TABLE, column removal)",
+    "schema changes affecting other agents",
+    "production data modifications",
+    "database technology changes"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "destructive SQL operations",
+      "breaking schema changes",
+      "data loss risk"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.30,
+      "impact_score": 0.6
+    }
+  },
+  "verification_steps": [
+    "run migration dry-run",
+    "validate schema consistency",
+    "test rollback procedure"
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent Manifest",
+  "description": "Schema for HITL Delegation Kernel agent manifests.",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "allowed_file_globs",
+    "allowed_tools",
+    "can",
+    "cannot",
+    "requires_human_for",
+    "escalate_if"
+  ],
+  "properties": {
+    "agent_id": {
+      "type": "string",
+      "description": "Unique identifier for the agent."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the agent."
+    },
+    "allowed_file_globs": {
+      "type": "object",
+      "description": "File access permissions as glob patterns.",
+      "required": ["read", "write"],
+      "properties": {
+        "read": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for files the agent may read."
+        },
+        "write": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for files the agent may write."
+        }
+      },
+      "additionalProperties": false
+    },
+    "allowed_tools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["web_search", "file_edit", "db_query", "shell_exec", "llm_call", "api_call"]
+      },
+      "description": "Tools the agent is permitted to use."
+    },
+    "can": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Capabilities the agent is allowed to perform."
+    },
+    "cannot": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Actions the agent is explicitly forbidden from performing."
+    },
+    "requires_human_for": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Situations that require human intervention."
+    },
+    "escalate_if": {
+      "type": "object",
+      "description": "Escalation rules for the agent.",
+      "required": ["hard_stops", "soft_thresholds"],
+      "properties": {
+        "hard_stops": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Rules that trigger immediate escalation."
+        },
+        "soft_thresholds": {
+          "type": "object",
+          "description": "Numeric thresholds for soft escalation.",
+          "properties": {
+            "uncertainty_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Uncertainty score threshold."
+            },
+            "impact_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Impact score threshold."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification_steps": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Commands or tests to run for verification."
+    }
+  },
+  "additionalProperties": false
+}

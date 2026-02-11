@@ -1,0 +1,44 @@
+{
+  "agent_id": "api",
+  "description": "API agent — designs and implements REST/GraphQL endpoints, handles request/response contracts",
+  "allowed_file_globs": {
+    "read": ["**/*.py", "**/*.ts", "**/*.json", "**/*.yaml", "contracts/**"],
+    "write": ["backend/api/**", "backend/routes/**", "contracts/openapi.*", "backend/main.py"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "shell_exec", "api_call", "web_search"],
+  "can": [
+    "create API endpoints",
+    "implement request validation",
+    "design API contracts",
+    "update OpenAPI specifications",
+    "implement middleware"
+  ],
+  "cannot": [
+    "modify database schemas directly",
+    "change authentication secrets",
+    "modify frontend components",
+    "deploy to production"
+  ],
+  "requires_human_for": [
+    "breaking API changes (removing/renaming endpoints)",
+    "authentication/authorization design",
+    "rate limiting policy decisions",
+    "public API surface changes"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "breaking API contract changes",
+      "security-sensitive endpoint design",
+      "PII exposure risk"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.35,
+      "impact_score": 0.7
+    }
+  },
+  "verification_steps": [
+    "validate OpenAPI spec",
+    "run API integration tests",
+    "check backward compatibility"
+  ]
+}

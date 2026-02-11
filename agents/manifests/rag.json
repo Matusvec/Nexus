@@ -1,0 +1,44 @@
+{
+  "agent_id": "rag",
+  "description": "RAG agent — manages retrieval-augmented generation pipeline, embeddings, and vector storage",
+  "allowed_file_globs": {
+    "read": ["backend/**", "**/*.py", "**/*.json", "**/*.yaml", "contracts/**"],
+    "write": ["backend/t_retriever.py", "backend/t_query.py", "backend/chunking.py", "backend/embeddings.py", "backend/storage.py"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "db_query", "shell_exec"],
+  "can": [
+    "modify RAG pipeline code",
+    "tune retrieval parameters",
+    "update chunking strategies",
+    "manage vector store operations",
+    "implement embedding changes"
+  ],
+  "cannot": [
+    "modify API endpoints",
+    "change frontend code",
+    "alter authentication logic",
+    "modify database schemas outside vector store"
+  ],
+  "requires_human_for": [
+    "retrieval architecture changes",
+    "embedding model changes",
+    "core hierarchy restructuring",
+    "changes affecting retrieval quality metrics"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "core RAG hierarchy changes",
+      "embedding model replacement",
+      "breaking retrieval interface changes"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.30,
+      "impact_score": 0.6
+    }
+  },
+  "verification_steps": [
+    "run retrieval quality tests",
+    "validate embedding dimensions",
+    "test chunking output consistency"
+  ]
+}
