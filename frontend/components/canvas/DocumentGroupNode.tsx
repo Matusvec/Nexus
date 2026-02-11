@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import { motion } from "framer-motion";
 import { Folder, MoreHorizontal, Trash2, Edit, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,8 +16,9 @@ import {
 import { PERSONAS, type DocumentGroup, type PersonaId } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-interface DocumentGroupNodeProps extends NodeProps {
+interface DocumentGroupNodeProps {
   data: DocumentGroup;
+  selected?: boolean;
 }
 
 function DocumentGroupNode({ data, selected }: DocumentGroupNodeProps) {

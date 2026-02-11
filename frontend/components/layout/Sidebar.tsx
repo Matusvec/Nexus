@@ -14,6 +14,8 @@ import {
   Search,
   Plus,
   Command,
+  Layers,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +40,18 @@ const navItems = [
     icon: FileText,
     label: "Documents",
     shortcut: "⌘2",
+  },
+  {
+    href: "/retrieval",
+    icon: Layers,
+    label: "Retrieval",
+    shortcut: "⌘3",
+  },
+  {
+    href: "/agents",
+    icon: Bot,
+    label: "Agents",
+    shortcut: "⌘4",
   },
 ];
 
@@ -205,17 +219,19 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       <div className="p-3 border-t border-border">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start",
-                collapsed && "justify-center px-0"
-              )}
-              onClick={() => setSettingsModalOpen(true)}
-            >
-              <Settings className="w-4 h-4" />
-              {!collapsed && <span className="ml-2">Settings</span>}
-            </Button>
+            <Link href="/settings">
+              <Button
+                variant={pathname === "/settings" ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full justify-start",
+                  collapsed && "justify-center px-0",
+                  pathname === "/settings" && "bg-primary/10 text-primary"
+                )}
+              >
+                <Settings className="w-4 h-4" />
+                {!collapsed && <span className="ml-2">Settings</span>}
+              </Button>
+            </Link>
           </TooltipTrigger>
           {collapsed && <TooltipContent side="right">Settings</TooltipContent>}
         </Tooltip>
