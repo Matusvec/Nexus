@@ -1,0 +1,44 @@
+{
+  "agent_id": "local_llm",
+  "description": "Local LLM agent — manages local model serving, inference optimization, and model configuration",
+  "allowed_file_globs": {
+    "read": ["**/*.py", "**/*.json", "**/*.yaml", "models/**", "backend/**"],
+    "write": ["backend/llm/**", "models/config/**", "backend/gemini_client.py"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "shell_exec", "web_search"],
+  "can": [
+    "configure LLM parameters",
+    "optimize inference settings",
+    "manage model loading",
+    "implement prompt templates",
+    "tune generation parameters"
+  ],
+  "cannot": [
+    "modify database schemas",
+    "change API contracts",
+    "alter frontend code",
+    "modify security configurations"
+  ],
+  "requires_human_for": [
+    "model selection decisions",
+    "resource allocation changes",
+    "API key or credential changes",
+    "production model swaps"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "model replacement decisions",
+      "credential or API key changes",
+      "resource allocation exceeding limits"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.35,
+      "impact_score": 0.7
+    }
+  },
+  "verification_steps": [
+    "test model loading",
+    "validate inference output quality",
+    "check resource usage within limits"
+  ]
+}

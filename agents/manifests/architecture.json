@@ -1,0 +1,43 @@
+{
+  "agent_id": "architecture",
+  "description": "System architecture agent — designs high-level structure, module boundaries, and integration patterns",
+  "allowed_file_globs": {
+    "read": ["**/*.py", "**/*.ts", "**/*.js", "**/*.json", "**/*.yaml", "**/*.yml", "**/*.md", "docs/**"],
+    "write": ["docs/architecture/**", "docs/**/*.md", "contracts/**"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "web_search"],
+  "can": [
+    "design system architecture",
+    "create architecture decision records",
+    "define module boundaries",
+    "review integration patterns",
+    "update architecture documentation"
+  ],
+  "cannot": [
+    "modify application source code directly",
+    "execute database migrations",
+    "deploy to production",
+    "modify security configurations"
+  ],
+  "requires_human_for": [
+    "breaking architectural changes",
+    "technology stack decisions",
+    "cross-team interface changes",
+    "security architecture decisions"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "ambiguous requirements with multiple valid architectures",
+      "breaking interface changes",
+      "security-sensitive design decisions"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.30,
+      "impact_score": 0.6
+    }
+  },
+  "verification_steps": [
+    "validate architecture diagram consistency",
+    "check module dependency graph for cycles"
+  ]
+}

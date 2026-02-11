@@ -1,0 +1,44 @@
+{
+  "agent_id": "ml",
+  "description": "ML agent — manages machine learning pipelines, model training, evaluation, and deployment",
+  "allowed_file_globs": {
+    "read": ["**/*.py", "**/*.json", "**/*.yaml", "models/**", "data/**", "contracts/ml_io.*"],
+    "write": ["backend/ml/**", "models/**", "contracts/ml_io.*"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "shell_exec", "db_query", "web_search"],
+  "can": [
+    "create training pipelines",
+    "implement model evaluation",
+    "manage feature engineering",
+    "optimize hyperparameters",
+    "update ML IO contracts"
+  ],
+  "cannot": [
+    "modify API endpoints",
+    "change frontend code",
+    "alter database schemas",
+    "deploy models to production"
+  ],
+  "requires_human_for": [
+    "model architecture decisions",
+    "training data source changes",
+    "ML IO contract changes",
+    "production deployment approval"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "ML IO contract changes",
+      "training data pipeline modifications",
+      "model architecture decisions"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.30,
+      "impact_score": 0.6
+    }
+  },
+  "verification_steps": [
+    "run model evaluation suite",
+    "validate ML IO contract compatibility",
+    "check training data integrity"
+  ]
+}

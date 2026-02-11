@@ -1,0 +1,44 @@
+{
+  "agent_id": "frontend",
+  "description": "Frontend agent — builds UI components, pages, and client-side logic",
+  "allowed_file_globs": {
+    "read": ["frontend/**", "contracts/**", "**/*.json", "**/*.md"],
+    "write": ["frontend/app/**", "frontend/components/**", "frontend/lib/**", "frontend/public/**"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "shell_exec", "web_search"],
+  "can": [
+    "create React components",
+    "implement page layouts",
+    "manage client-side state",
+    "write CSS/Tailwind styles",
+    "update Next.js configuration"
+  ],
+  "cannot": [
+    "modify backend code",
+    "change database schemas",
+    "modify API contracts",
+    "access server credentials"
+  ],
+  "requires_human_for": [
+    "major UX flow changes",
+    "accessibility compliance decisions",
+    "third-party integration choices",
+    "design system token changes"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "design token modifications",
+      "breaking component API changes",
+      "security-sensitive client code"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.40,
+      "impact_score": 0.7
+    }
+  },
+  "verification_steps": [
+    "npm run build",
+    "npm run lint",
+    "run component tests"
+  ]
+}

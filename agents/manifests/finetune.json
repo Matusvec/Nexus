@@ -1,0 +1,44 @@
+{
+  "agent_id": "finetune",
+  "description": "Fine-tuning agent — manages model fine-tuning, dataset preparation, and training runs",
+  "allowed_file_globs": {
+    "read": ["**/*.py", "**/*.json", "**/*.yaml", "models/**", "data/**"],
+    "write": ["backend/finetune/**", "models/finetune/**", "data/training/**"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "shell_exec", "web_search"],
+  "can": [
+    "prepare fine-tuning datasets",
+    "configure training hyperparameters",
+    "implement training loops",
+    "evaluate fine-tuned models",
+    "manage training checkpoints"
+  ],
+  "cannot": [
+    "modify production models",
+    "change API endpoints",
+    "alter database schemas",
+    "modify security configurations"
+  ],
+  "requires_human_for": [
+    "base model selection",
+    "training budget approval",
+    "dataset licensing verification",
+    "production model replacement"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "production model replacement",
+      "training data with PII",
+      "resource budget exceeding limits"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.35,
+      "impact_score": 0.7
+    }
+  },
+  "verification_steps": [
+    "validate dataset format",
+    "run training smoke test",
+    "evaluate model quality metrics"
+  ]
+}

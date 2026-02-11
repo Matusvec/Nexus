@@ -1,0 +1,44 @@
+{
+  "agent_id": "creative",
+  "description": "Creative agent — generates content, copy, documentation, and creative assets",
+  "allowed_file_globs": {
+    "read": ["**/*.md", "**/*.txt", "**/*.json", "docs/**", "frontend/**"],
+    "write": ["docs/**", "**/*.md", "frontend/public/content/**"]
+  },
+  "allowed_tools": ["file_edit", "llm_call", "web_search"],
+  "can": [
+    "write documentation",
+    "create user-facing copy",
+    "generate content",
+    "edit markdown files",
+    "create README files"
+  ],
+  "cannot": [
+    "modify source code",
+    "change configurations",
+    "alter database schemas",
+    "modify security files"
+  ],
+  "requires_human_for": [
+    "brand voice decisions",
+    "legal/compliance content",
+    "public-facing messaging",
+    "content involving PII"
+  ],
+  "escalate_if": {
+    "hard_stops": [
+      "legal or compliance content",
+      "PII in content",
+      "brand-sensitive messaging"
+    ],
+    "soft_thresholds": {
+      "uncertainty_score": 0.45,
+      "impact_score": 0.8
+    }
+  },
+  "verification_steps": [
+    "spell check",
+    "link validation",
+    "tone consistency review"
+  ]
+}
