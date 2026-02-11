@@ -12,6 +12,9 @@ on:
       - 'agents/manifests/**'
       - '.github/workflows/kernel-ci.yml'
 
+permissions:
+  contents: read
+
 jobs:
   kernel-tests:
     runs-on: ubuntu-latest
