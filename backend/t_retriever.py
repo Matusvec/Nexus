@@ -61,6 +61,15 @@ GRAPH_EXPANSION_TOP_K = 3       # Top neighbors per hop
 TREE_RETRIEVAL_TOP_K = 10       # Initial tree retrieval count
 HYBRID_ALPHA = 0.6              # Weight for tree vs graph (0.6 = 60% tree)
 
+# UMAP dimensionality reduction parameters (RAPTOR paper best practice)
+UMAP_N_COMPONENTS = 10          # Target dimensions after reduction
+UMAP_N_NEIGHBORS = 15           # Neighborhood size for UMAP
+UMAP_MIN_DIST = 0.1             # Minimum distance between points in low-dim space
+UMAP_METRIC = "cosine"          # Distance metric for UMAP
+
+# Clustering strategy: "leiden" (default), "gmm" (soft), "hdbscan" (density)
+CLUSTERING_STRATEGY = "leiden"
+
 
 # ============================================================================
 # ENTITY EXTRACTION MODULE
@@ -465,36 +474,62 @@ def load_document_graph(document_id: str, collection_name: str = "nexus_chunks")
 
 
 # ============================================================================
-# CLUSTERING MODULE (Entity-aware clustering)
+# CLUSTERING MODULE (Entity-aware with UMAP dimensionality reduction)
+#
+# Based on RAPTOR paper: high-dimensional embeddings are first reduced
+# via UMAP, then clustered. Entity overlap is combined with embedding
+# similarity to produce entity-aware clusters.
+#
+# Strategies (selectable via CLUSTERING_STRATEGY):
+#   "leiden"  - UMAP → entity-aware Leiden community detection (default)
+#   "gmm"    - UMAP → Gaussian Mixture Model (soft clustering, RAPTOR)
+#   "hdbscan" - UMAP → HDBSCAN density-based clustering
 # ============================================================================
 
-def cluster_with_entities(
+def _reduce_with_umap(
     embeddings: np.ndarray,
-    entities_per_node: List[List[Dict]],
-    layer: int = 0
-) -> Tuple[List[List[int]], np.ndarray]:
+    n_components: int = UMAP_N_COMPONENTS,
+    n_neighbors: int = UMAP_N_NEIGHBORS,
+    min_dist: float = UMAP_MIN_DIST,
+    metric: str = UMAP_METRIC
+) -> np.ndarray:
     """
-    Entity-aware clustering using Leiden algorithm
+    Reduce high-dimensional embeddings with UMAP before clustering.
     
-    Clusters nodes considering both embedding similarity and entity overlap.
-    This is the key improvement: entity-aware clustering.
+    RAPTOR paper best practice: UMAP preserves local neighborhood
+    structure better than PCA, producing tighter clusters.
+    Falls back to the original embeddings when UMAP is unavailable or
+    when the sample count is too small for meaningful reduction.
     """
-    try:
-        import igraph as ig
-        import leidenalg
-    except ImportError:
-        print("   [WARN] Leiden not available, using GMM fallback")
-        return cluster_embeddings_gmm(embeddings)
-    
     n_samples = embeddings.shape[0]
-    
-    if n_samples < MIN_NODES_FOR_CLUSTERING:
-        return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
-    
-    # Build similarity matrix combining embeddings + entity overlap
-    embed_sims = cosine_similarity(embeddings)
-    
-    # Entity overlap matrix
+    target_dims = min(n_components, embeddings.shape[1], n_samples - 2)
+    if target_dims < 2:
+        return embeddings
+
+    try:
+        import umap
+        reducer = umap.UMAP(
+            n_components=target_dims,
+            n_neighbors=min(n_neighbors, n_samples - 1),
+            min_dist=min_dist,
+            metric=metric,
+            random_state=42,
+        )
+        reduced = reducer.fit_transform(embeddings)
+        return reduced
+    except ImportError:
+        print("   [WARN] umap-learn not installed, skipping dimensionality reduction")
+        return embeddings
+    except Exception as exc:
+        print(f"   [WARN] UMAP reduction failed ({exc}), using raw embeddings")
+        return embeddings
+
+
+def _build_entity_similarity_matrix(
+    entities_per_node: List[List[Dict]],
+    n_samples: int,
+) -> np.ndarray:
+    """Compute pairwise Jaccard entity overlap matrix."""
     entity_sims = np.zeros((n_samples, n_samples))
     for i in range(n_samples):
         ents_i = {e["name"].lower() for e in entities_per_node[i]}
@@ -503,11 +538,71 @@ def cluster_with_entities(
             if ents_i and ents_j:
                 overlap = len(ents_i & ents_j) / len(ents_i | ents_j)
                 entity_sims[i, j] = entity_sims[j, i] = overlap
-    
-    # Combined similarity
+    return entity_sims
+
+
+def cluster_with_entities(
+    embeddings: np.ndarray,
+    entities_per_node: List[List[Dict]],
+    layer: int = 0,
+    strategy: Optional[str] = None,
+) -> Tuple[List[List[int]], np.ndarray]:
+    """
+    Entity-aware clustering with UMAP dimensionality reduction.
+
+    Pipeline (per RAPTOR / T-Retriever papers):
+      1. Reduce embeddings via UMAP
+      2. Build combined similarity matrix (embedding 70 % + entity overlap 30 %)
+      3. Cluster using the selected strategy
+      4. Return cluster assignments and membership matrix
+
+    The *strategy* parameter selects the clustering algorithm:
+      - ``"leiden"``  – Leiden community detection on a similarity graph
+      - ``"gmm"``    – Gaussian Mixture Model (soft clustering, RAPTOR paper)
+      - ``"hdbscan"`` – HDBSCAN density-based clustering
+    Falls back gracefully when a dependency is missing.
+    """
+    strategy = strategy or CLUSTERING_STRATEGY
+    n_samples = embeddings.shape[0]
+
+    if n_samples < MIN_NODES_FOR_CLUSTERING:
+        return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
+
+    # --- Step 1: UMAP dimensionality reduction ---
+    reduced = _reduce_with_umap(embeddings)
+
+    # --- Step 2: Combined similarity matrix ---
+    embed_sims = cosine_similarity(reduced)
+    entity_sims = _build_entity_similarity_matrix(entities_per_node, n_samples)
     combined_sims = embed_sims * 0.7 + entity_sims * 0.3
-    
-    # Build graph for Leiden
+
+    # --- Step 3: Cluster ---
+    if strategy == "leiden":
+        return _cluster_leiden(combined_sims, n_samples, layer)
+    elif strategy == "gmm":
+        return _cluster_gmm(reduced, entity_sims, n_samples)
+    elif strategy == "hdbscan":
+        return _cluster_hdbscan(reduced, entity_sims, n_samples)
+    else:
+        print(f"   [WARN] Unknown strategy '{strategy}', falling back to leiden")
+        return _cluster_leiden(combined_sims, n_samples, layer)
+
+
+# ---- Leiden clustering (default) ----
+
+def _cluster_leiden(
+    combined_sims: np.ndarray,
+    n_samples: int,
+    layer: int,
+) -> Tuple[List[List[int]], np.ndarray]:
+    """Leiden community detection on an entity+embedding similarity graph."""
+    try:
+        import igraph as ig
+        import leidenalg
+    except ImportError:
+        print("   [WARN] Leiden not available, using GMM fallback")
+        return _cluster_gmm_raw(combined_sims, n_samples)
+
     edges = []
     weights = []
     for i in range(n_samples):
@@ -515,79 +610,138 @@ def cluster_with_entities(
             if combined_sims[i, j] > GRAPH_EDGE_SIMILARITY_THRESHOLD:
                 edges.append((i, j))
                 weights.append(combined_sims[i, j])
-    
+
     if not edges:
-        # No edges, return single cluster
         return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
-    
+
     g = ig.Graph(n=n_samples, edges=edges, directed=False)
     g.es['weight'] = weights
-    
+
     # Layer-adaptive resolution (broader clusters at higher layers)
     resolution = 1.0 * (0.7 ** layer)
-    
+
     partition = leidenalg.find_partition(
         g,
         leidenalg.RBConfigurationVertexPartition,
         weights='weight',
         resolution_parameter=resolution,
-        seed=42
+        seed=42,
     )
-    
-    clusters = [list(community) for community in partition]
-    
-    # Build membership matrix
+
+    clusters = [list(community) for community in partition if community]
+
+    if not clusters:
+        return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
+
     membership = np.zeros((n_samples, len(clusters)))
     for cluster_idx, members in enumerate(clusters):
         for node_idx in members:
             membership[node_idx, cluster_idx] = 1.0
-    
-    clusters = [c for c in clusters if len(c) > 0]
-    
+
     return clusters, membership
 
 
-def cluster_embeddings_gmm(
-    embeddings: np.ndarray,
-    n_clusters: Optional[int] = None
+# ---- GMM clustering (RAPTOR-style soft clustering) ----
+
+def _cluster_gmm(
+    reduced: np.ndarray,
+    entity_sims: np.ndarray,
+    n_samples: int,
+    n_clusters: Optional[int] = None,
 ) -> Tuple[List[List[int]], np.ndarray]:
-    """Fallback GMM clustering"""
+    """Gaussian Mixture Model with auto-detected cluster count via BIC."""
     from sklearn.mixture import GaussianMixture
-    
-    n_samples = embeddings.shape[0]
-    
+
     if n_samples < MIN_NODES_FOR_CLUSTERING:
         return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
-    
-    # Auto-detect cluster count using BIC
+
     if n_clusters is None:
         best_bic = float('inf')
         best_n = 2
         for n in range(2, min(10, n_samples)):
             try:
                 gmm = GaussianMixture(n_components=n, random_state=42)
-                gmm.fit(embeddings)
-                bic = gmm.bic(embeddings)
+                gmm.fit(reduced)
+                bic = gmm.bic(reduced)
                 if bic < best_bic:
                     best_bic = bic
                     best_n = n
-            except:
+            except Exception as exc:
+                print(f"   [WARN] GMM fit failed for n={n}: {exc}")
                 continue
         n_clusters = best_n
-    
+
     gmm = GaussianMixture(n_components=n_clusters, random_state=42)
-    gmm.fit(embeddings)
-    
-    labels = gmm.predict(embeddings)
-    probabilities = gmm.predict_proba(embeddings)
-    
-    clusters = [[] for _ in range(n_clusters)]
+    gmm.fit(reduced)
+
+    labels = gmm.predict(reduced)
+    probabilities = gmm.predict_proba(reduced)
+
+    clusters: List[List[int]] = [[] for _ in range(n_clusters)]
     for i, label in enumerate(labels):
         clusters[label].append(i)
-    
     clusters = [c for c in clusters if len(c) > 0]
-    
+
     return clusters, probabilities
+
+
+def _cluster_gmm_raw(
+    combined_sims: np.ndarray,
+    n_samples: int,
+) -> Tuple[List[List[int]], np.ndarray]:
+    """Last-resort GMM fallback operating directly on the similarity matrix."""
+    return _cluster_gmm(combined_sims, np.zeros((n_samples, n_samples)), n_samples)
+
+
+# ---- HDBSCAN clustering (density-based) ----
+
+def _cluster_hdbscan(
+    reduced: np.ndarray,
+    entity_sims: np.ndarray,
+    n_samples: int,
+) -> Tuple[List[List[int]], np.ndarray]:
+    """HDBSCAN density-based clustering on UMAP-reduced embeddings."""
+    try:
+        import hdbscan as hdb
+    except ImportError:
+        print("   [WARN] hdbscan not installed, falling back to GMM")
+        return _cluster_gmm(reduced, entity_sims, n_samples)
+
+    min_cluster = max(MIN_CLUSTER_SIZE, 2)
+    clusterer = hdb.HDBSCAN(
+        min_cluster_size=min_cluster,
+        min_samples=1,
+        metric="euclidean",
+    )
+    labels = clusterer.fit_predict(reduced)
+
+    # Group indices by label; -1 = noise
+    label_set = sorted(set(labels) - {-1})
+    if not label_set:
+        return [[i for i in range(n_samples)]], np.ones((n_samples, 1))
+
+    clusters: List[List[int]] = []
+    for lbl in label_set:
+        clusters.append([i for i, l in enumerate(labels) if l == lbl])
+
+    # Assign noise points to nearest cluster by entity similarity, then embedding distance
+    noise_indices = [i for i, l in enumerate(labels) if l == -1]
+    for ni in noise_indices:
+        best_cluster = 0
+        best_score = -1.0
+        for ci, members in enumerate(clusters):
+            score = max((entity_sims[ni, m] for m in members), default=0.0)
+            if score > best_score:
+                best_score = score
+                best_cluster = ci
+        clusters[best_cluster].append(ni)
+
+    membership = np.zeros((n_samples, max(len(clusters), 1)))
+    for cluster_idx, members in enumerate(clusters):
+        for node_idx in members:
+            membership[node_idx, cluster_idx] = 1.0
+
+    return clusters, membership
 
 
 # ============================================================================
@@ -794,8 +948,11 @@ def build_layer_tretriever(
     """
     Build one layer of the T-Retriever tree
     
-    Entity-aware clustering + entity-preserving summarization
+    Entity-aware clustering + entity-preserving summarization.
+    Also populates the TreeIndex membership for incremental updates.
     """
+    from tree_index import get_document_index
+
     print(f"\n[BUILD] Building layer {current_layer + 1} from layer {current_layer}...")
 
     # Get chunks at current layer
@@ -859,6 +1016,24 @@ def build_layer_tretriever(
     summary_ids = store_chunks_with_entities(
         summaries, document_id, current_layer + 1, collection_name
     )
+
+    # --- Populate membership index ---
+    tree_idx = get_document_index(document_id)
+    for sid, summary in zip(summary_ids, summaries):
+        child_ids = summary.get("child_ids", [])
+        cluster_label = summary.get("cluster_id", "")
+        tree_idx.register_node(
+            sid,
+            layer=current_layer + 1,
+            cluster_id=cluster_label,
+            children=list(child_ids),
+        )
+        # Link children → parent
+        for cid in child_ids:
+            tree_idx.set_parent(cid, sid)
+            # Ensure leaf nodes are registered if not already
+            if cid not in tree_idx.membership:
+                tree_idx.register_node(cid, layer=current_layer, cluster_id=cluster_label)
     
     print(f"   [OK] Created {len(summary_ids)} summaries at layer {current_layer + 1}")
     
@@ -939,6 +1114,13 @@ def build_tretriever_tree(
     # Build entity graph from base chunks
     print(f"\nBuilding entity graph...")
     graph = get_document_graph(document_id)
+
+    # Initialize tree index for base chunks
+    from tree_index import get_document_index, save_document_index
+    tree_idx = get_document_index(document_id)
+    for cid in chunk_ids:
+        if cid not in tree_idx.membership:
+            tree_idx.register_node(cid, layer=0)
     
     # Get embeddings if needed
     if embeddings is None or len(embeddings) == 0:
@@ -987,6 +1169,9 @@ def build_tretriever_tree(
     
     # Save graph
     save_document_graph(document_id, collection_name)
+
+    # Save tree index for incremental updates
+    save_document_index(document_id, collection_name)
     
     # Print summary
     print("\n" + "=" * 60)
@@ -1004,6 +1189,85 @@ def build_tretriever_tree(
     print("=" * 60)
     
     return stats
+
+
+# ============================================================================
+# LOCAL RE-SUMMARIZATION (for incremental updates)
+# ============================================================================
+
+def resummarize_node(
+    summary_id: str,
+    document_id: str,
+    collection_name: str = "nexus_chunks",
+) -> bool:
+    """Re-summarize a single summary node from its current children.
+
+    Called after a child has been removed.  Fetches the remaining children
+    from ChromaDB, regenerates the summary text and entities, and updates
+    the node in-place.
+
+    Returns True on success, False if the node has no remaining children.
+    """
+    from tree_index import get_document_index
+
+    collection = get_or_create_collection(collection_name)
+    tree_idx = get_document_index(document_id)
+
+    entry = tree_idx.membership.get(summary_id)
+    if not entry:
+        return False
+
+    child_ids = [
+        cid for cid in entry.get("children", [])
+        if not tree_idx.is_tombstoned(cid)
+    ]
+
+    if not child_ids:
+        return False
+
+    # Fetch child texts and entities
+    results = collection.get(ids=child_ids, include=["documents", "metadatas"])
+    if not results["ids"]:
+        return False
+
+    texts = results["documents"]
+    entities_list = []
+    for meta in results["metadatas"]:
+        entities_json = meta.get("entities", "[]")
+        try:
+            entities = json.loads(entities_json) if isinstance(entities_json, str) else entities_json
+        except Exception:
+            entities = []
+        entities_list.append(entities)
+
+    layer = entry["layer"]
+    summary_text, aggregated_entities = summarize_cluster_with_entities(
+        texts, entities_list, layer - 1
+    )
+
+    # Update the summary chunk in ChromaDB
+    new_embedding = get_embeddings([summary_text])[0]
+    collection.update(
+        ids=[summary_id],
+        documents=[summary_text],
+        embeddings=[new_embedding],
+        metadatas=[{
+            "document_id": document_id,
+            "layer": layer,
+            "is_summary": True,
+            "entities": json.dumps(aggregated_entities),
+            "entity_names": ",".join(e["name"] for e in aggregated_entities[:10]),
+            "token_count": count_tokens(summary_text),
+            "content_type": "summary",
+            "child_ids": ",".join(child_ids),
+        }],
+    )
+
+    # Update tree index children list
+    entry["children"] = child_ids
+    tree_idx.dirty_nodes.add(summary_id)
+
+    return True
 
 
 def delete_tree_layers(
