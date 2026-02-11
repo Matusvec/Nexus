@@ -49,7 +49,8 @@ class TestDocumentManagerRemove:
 
             from document_manager import remove_document
             result = remove_document("doc1", collection_name=coll_name)
-            assert result["deleted_chunks"] >= 3
+            # 3 content chunks were added; may also remove graph metadata
+            assert result["deleted_chunks"] == 3
 
             remaining = coll.get(where={"document_id": "doc1"})
             assert len(remaining["ids"]) == 0

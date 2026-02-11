@@ -43,7 +43,7 @@ class TestExtractQueryEntities:
 
         entities = extract_query_entities("How does UMAP relate to clustering?")
         lower = [e.lower() for e in entities]
-        assert "umap" in lower or "UMAP" in [e for e in entities]
+        assert "umap" in lower
 
     def test_filters_stopwords(self):
         from t_query import extract_query_entities
