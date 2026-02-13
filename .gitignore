@@ -18,6 +18,11 @@ bin-release/
 # information for Eclipse / Flash Builder.
 
 # ===== SECRETS & API KEYS - NEVER COMMIT =====
+/backend/.env
+/backend/.env.*
+/backend/.env.local
+/frontend/.env
+/frontend/.env.*
 .env
 .env.*
 .env.local
