@@ -1,27 +1,33 @@
 // ============================================
 // NEXUS API CLIENT
 // ============================================
-// This file contains all API calls to the FastAPI backend.
-// Replace BASE_URL with your actual backend URL.
+// Calls the FastAPI backend via Next.js rewrite proxy (/api/* → backend).
 
 import type {
-  Document,
-  DatabaseStats,
-  QueryResult,
-  UploadProgress,
-  HumanTask,
-  DocumentGroup,
-  Chunk,
+  Evidence,
+  EvidenceDetail,
+  EvidenceListResponse,
+  SourceType,
+  ProblemMention,
+  ProblemMentionListResponse,
+  SimilarProblemsResponse,
+  ProblemStats,
+  JobResponse,
+  JobStatusResponse,
+  ProblemCluster,
+  ClusterDetail,
+  FeatureProposal,
+  RoadmapResponse,
 } from "./types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_PREFIX = "/api/v1";
 
 // Helper function for API calls
 async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  const response = await fetch(`${API_PREFIX}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -30,7 +36,9 @@ async function fetchApi<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Unknown error" }));
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Unknown error" }));
     throw new Error(error.detail || `API Error: ${response.status}`);
   }
 
@@ -38,211 +46,172 @@ async function fetchApi<T>(
 }
 
 // ============================================
-// DOCUMENT ENDPOINTS
+// EVIDENCE ENDPOINTS
 // ============================================
 
-export async function uploadDocument(
-  file: File,
-  groupId?: string,
-  onProgress?: (progress: UploadProgress) => void
-): Promise<Document> {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (groupId) formData.append("group_id", groupId);
-
-  const response = await fetch(`${BASE_URL}/upload`, {
+export async function createEvidence(data: {
+  title: string;
+  source_type: SourceType;
+  raw_text: string;
+  persona?: string;
+  segment?: string;
+  source_date?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<Evidence> {
+  return fetchApi<Evidence>("/evidence", {
     method: "POST",
-    body: formData,
+    body: JSON.stringify(data),
   });
-
-  if (!response.ok) {
-    throw new Error("Upload failed");
-  }
-
-  // For now, return the response directly
-  // In production, you might use Server-Sent Events for progress
-  return response.json();
 }
 
-export async function getDocuments(): Promise<Document[]> {
-  return fetchApi<Document[]>("/documents");
+export async function listEvidence(
+  page = 1,
+  perPage = 20,
+  filters?: { source_type?: SourceType; persona?: string; segment?: string }
+): Promise<EvidenceListResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  });
+  if (filters?.source_type) params.set("source_type", filters.source_type);
+  if (filters?.persona) params.set("persona", filters.persona);
+  if (filters?.segment) params.set("segment", filters.segment);
+  return fetchApi<EvidenceListResponse>(`/evidence?${params}`);
 }
 
-export async function getDocument(id: string): Promise<Document> {
-  return fetchApi<Document>(`/documents/${id}`);
+export async function getEvidence(id: string): Promise<EvidenceDetail> {
+  return fetchApi<EvidenceDetail>(`/evidence/${id}`);
 }
 
-export async function deleteDocument(id: string): Promise<void> {
-  await fetchApi(`/documents/${id}`, { method: "DELETE" });
-}
-
-export async function getDocumentChunks(id: string): Promise<Chunk[]> {
-  return fetchApi<Chunk[]>(`/documents/${id}/chunks`);
+export async function deleteEvidence(id: string): Promise<void> {
+  await fetchApi(`/evidence/${id}`, { method: "DELETE" });
 }
 
 // ============================================
-// QUERY ENDPOINTS
+// PROBLEMS ENDPOINTS
 // ============================================
 
-export async function queryKnowledgeBase(
-  question: string,
-  options?: {
-    documentId?: string;
-    groupId?: string;
-    topK?: number;
-    personaId?: string;
-  }
-): Promise<QueryResult> {
-  return fetchApi<QueryResult>("/query", {
+export async function listProblems(
+  page = 1,
+  perPage = 20,
+  filters?: { severity?: string; persona?: string; tag?: string; evidence_id?: string }
+): Promise<ProblemMentionListResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  });
+  if (filters?.severity) params.set("severity", filters.severity);
+  if (filters?.persona) params.set("persona", filters.persona);
+  if (filters?.tag) params.set("tag", filters.tag);
+  if (filters?.evidence_id) params.set("evidence_id", filters.evidence_id);
+  return fetchApi<ProblemMentionListResponse>(`/problems?${params}`);
+}
+
+export async function getProblem(id: string): Promise<ProblemMention> {
+  return fetchApi<ProblemMention>(`/problems/${id}`);
+}
+
+export async function findSimilarProblems(
+  text: string,
+  limit = 10,
+  minScore = 0.5
+): Promise<SimilarProblemsResponse> {
+  const params = new URLSearchParams({
+    text,
+    limit: String(limit),
+    min_score: String(minScore),
+  });
+  return fetchApi<SimilarProblemsResponse>(`/problems/similar?${params}`);
+}
+
+export async function getProblemStats(filters?: {
+  persona?: string;
+  severity?: string;
+  tag?: string;
+}): Promise<ProblemStats> {
+  const params = new URLSearchParams();
+  if (filters?.persona) params.set("persona", filters.persona);
+  if (filters?.severity) params.set("severity", filters.severity);
+  if (filters?.tag) params.set("tag", filters.tag);
+  const qs = params.toString();
+  return fetchApi<ProblemStats>(`/problems/stats${qs ? `?${qs}` : ""}`);
+}
+
+// ============================================
+// JOBS ENDPOINTS
+// ============================================
+
+export async function extractProblems(evidenceId: string): Promise<JobResponse> {
+  return fetchApi<JobResponse>("/jobs/extract_problems", {
     method: "POST",
-    body: JSON.stringify({
-      question,
-      document_id: options?.documentId,
-      group_id: options?.groupId,
-      top_k: options?.topK || 10,
-      persona_id: options?.personaId,
-    }),
+    body: JSON.stringify({ evidence_id: evidenceId }),
   });
 }
 
-// Streaming query for chat interface
-export async function* streamQuery(
-  question: string,
-  options?: {
-    documentId?: string;
-    groupId?: string;
-    personaId?: string;
-  }
-): AsyncGenerator<string, void, unknown> {
-  const response = await fetch(`${BASE_URL}/query/stream`, {
+export async function embedProblems(problemIds?: string[]): Promise<JobResponse> {
+  return fetchApi<JobResponse>("/jobs/embed_problems", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      question,
-      document_id: options?.documentId,
-      group_id: options?.groupId,
-      persona_id: options?.personaId,
-    }),
+    body: JSON.stringify(problemIds ? { problem_ids: problemIds } : {}),
   });
+}
 
-  if (!response.ok) {
-    throw new Error("Query failed");
-  }
+export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
+  return fetchApi<JobStatusResponse>(`/jobs/${jobId}/status`);
+}
 
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    yield decoder.decode(value);
-  }
+export async function getLLMCosts(): Promise<Record<string, unknown>> {
+  return fetchApi("/llm/costs");
 }
 
 // ============================================
-// RAPTOR TREE ENDPOINTS
+// CLUSTERS ENDPOINTS
 // ============================================
 
-export async function buildRaptorTree(documentId: string): Promise<void> {
-  await fetchApi(`/documents/${documentId}/build-tree`, { method: "POST" });
-}
-
-export async function getRaptorTree(documentId: string): Promise<{
-  layers: number;
-  nodesByLayer: Record<number, number>;
-}> {
-  return fetchApi(`/documents/${documentId}/tree`);
-}
-
-// ============================================
-// GROUPS ENDPOINTS
-// ============================================
-
-export async function getGroups(): Promise<DocumentGroup[]> {
-  return fetchApi<DocumentGroup[]>("/groups");
-}
-
-export async function createGroup(group: Omit<DocumentGroup, "id">): Promise<DocumentGroup> {
-  return fetchApi<DocumentGroup>("/groups", {
+export async function runClustering(threshold = 0.75): Promise<{ clusters_created: number }> {
+  return fetchApi("/clusters/run", {
     method: "POST",
-    body: JSON.stringify(group),
+    body: JSON.stringify({ threshold }),
   });
 }
 
-export async function updateGroup(id: string, updates: Partial<DocumentGroup>): Promise<DocumentGroup> {
-  return fetchApi<DocumentGroup>(`/groups/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(updates),
+export async function listClusters(
+  page = 1,
+  perPage = 20
+): Promise<{ items: ProblemCluster[]; total: number; page: number; per_page: number; total_pages: number }> {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
   });
+  return fetchApi(`/clusters?${params}`);
 }
 
-export async function deleteGroup(id: string): Promise<void> {
-  await fetchApi(`/groups/${id}`, { method: "DELETE" });
+export async function getCluster(id: string): Promise<ClusterDetail> {
+  return fetchApi<ClusterDetail>(`/clusters/${id}`);
 }
 
-export async function addDocumentToGroup(groupId: string, documentId: string): Promise<void> {
-  await fetchApi(`/groups/${groupId}/documents`, {
+export async function createProposal(data: {
+  cluster_id: string;
+  title: string;
+  description?: string;
+  priority_score?: number;
+  impact?: string;
+  effort?: string;
+}): Promise<FeatureProposal> {
+  return fetchApi<FeatureProposal>("/proposals", {
     method: "POST",
-    body: JSON.stringify({ document_id: documentId }),
+    body: JSON.stringify(data),
   });
 }
 
-// ============================================
-// HUMAN TASKS ENDPOINTS
-// ============================================
-
-export async function getHumanTasks(): Promise<HumanTask[]> {
-  return fetchApi<HumanTask[]>("/tasks");
-}
-
-export async function completeHumanTask(
-  taskId: string,
-  files?: File[]
-): Promise<HumanTask> {
-  const formData = new FormData();
-  if (files) {
-    files.forEach((file) => formData.append("files", file));
-  }
-
-  const response = await fetch(`${BASE_URL}/tasks/${taskId}/complete`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to complete task");
-  }
-
-  return response.json();
+export async function getRoadmap(limit = 50): Promise<RoadmapResponse> {
+  return fetchApi<RoadmapResponse>(`/roadmap?limit=${limit}`);
 }
 
 // ============================================
-// STATISTICS ENDPOINTS
+// HEALTH
 // ============================================
 
-export async function getStats(): Promise<DatabaseStats> {
-  return fetchApi<DatabaseStats>("/stats");
+export async function healthCheck(): Promise<{ status: string }> {
+  return fetchApi<{ status: string }>("/health");
 }
 
-// ============================================
-// CHAT/CONVERSATION ENDPOINTS
-// ============================================
-
-export async function createConversation(personaId?: string): Promise<{ id: string }> {
-  return fetchApi("/conversations", {
-    method: "POST",
-    body: JSON.stringify({ persona_id: personaId }),
-  });
-}
-
-export async function getConversation(id: string): Promise<{
-  id: string;
-  messages: Array<{
-    role: "user" | "assistant";
-    content: string;
-    timestamp: string;
-  }>;
-}> {
-  return fetchApi(`/conversations/${id}`);
-}

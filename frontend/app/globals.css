@@ -36,6 +36,58 @@
   }
 }
 
+/* PM pipeline theme overrides */
+.pm-root {
+  --background: 36 40% 96%;
+  --foreground: 215 22% 16%;
+  --card: 36 35% 98%;
+  --card-foreground: 215 22% 16%;
+  --popover: 36 35% 98%;
+  --popover-foreground: 215 22% 16%;
+  --primary: 190 66% 36%;
+  --primary-foreground: 36 40% 96%;
+  --secondary: 36 24% 90%;
+  --secondary-foreground: 215 22% 16%;
+  --muted: 36 18% 92%;
+  --muted-foreground: 215 15% 40%;
+  --accent: 24 88% 54%;
+  --accent-foreground: 36 40% 96%;
+  --destructive: 0 78% 52%;
+  --destructive-foreground: 36 40% 96%;
+  --border: 36 18% 85%;
+  --input: 36 18% 85%;
+  --ring: 190 66% 36%;
+  font-family: var(--font-sans);
+  color: hsl(var(--foreground));
+}
+
+.pm-root h1,
+.pm-root h2,
+.pm-root h3,
+.pm-root h4,
+.pm-root h5,
+.pm-root h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.pm-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(14, 116, 144, 0.12), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(234, 88, 12, 0.12), transparent 45%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.pm-grid {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

@@ -1,25 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   FileText,
   Search,
-  Filter,
   Grid,
   List,
   MoreHorizontal,
   Trash2,
   Eye,
-  Download,
   Layers,
   Clock,
-  HardDrive,
-  CheckCircle2,
   AlertCircle,
   Loader2,
+  Plus,
+  Zap,
 } from "lucide-react";
-import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
 import UploadModal from "@/components/documents/UploadModal";
 import SearchCommand from "@/components/layout/SearchCommand";
@@ -39,80 +36,29 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDocumentsStore, useUIStore } from "@/lib/store";
-import { formatBytes, formatDate, cn } from "@/lib/utils";
-import type { Document } from "@/lib/types";
+import { useEvidenceStore, useUIStore } from "@/lib/store";
+import { listEvidence, deleteEvidence, getProblemStats } from "@/lib/api";
+import { formatDate, cn } from "@/lib/utils";
+import type { Evidence, ProblemStats } from "@/lib/types";
 
-// Mock data for demonstration
-const mockDocuments: Document[] = [
-  {
-    id: "1",
-    filename: "RAPTOR_Paper_ICLR2024.pdf",
-    uploadedAt: "2026-01-20T10:30:00Z",
-    fileSize: 2456000,
-    chunkCount: 45,
-    status: "ready",
-    summary: "Recursive Abstractive Processing for Tree-Organized Retrieval - A hierarchical approach to RAG systems.",
-  },
-  {
-    id: "2",
-    filename: "Motor_Specifications_v2.pdf",
-    uploadedAt: "2026-01-22T14:15:00Z",
-    fileSize: 1234000,
-    chunkCount: 23,
-    status: "ready",
-    summary: "Technical specifications for brushless DC motors including torque curves and thermal limits.",
-  },
-  {
-    id: "3",
-    filename: "Implementation_Notes.md",
-    uploadedAt: "2026-01-25T09:00:00Z",
-    fileSize: 45000,
-    chunkCount: 12,
-    status: "ready",
-    summary: "Development notes for the Nexus RAG system implementation.",
-  },
-  {
-    id: "4",
-    filename: "Quantum_Computing_Intro.pdf",
-    uploadedAt: "2026-01-26T16:45:00Z",
-    fileSize: 5670000,
-    chunkCount: 0,
-    status: "processing",
-  },
-  {
-    id: "5",
-    filename: "ML_Algorithms_Handbook.pdf",
-    uploadedAt: "2026-01-27T11:20:00Z",
-    fileSize: 8900000,
-    chunkCount: 89,
-    status: "ready",
-    summary: "Comprehensive guide to machine learning algorithms and their implementations.",
-  },
-];
+const SOURCE_COLORS: Record<string, string> = {
+  interview: "#8B5CF6",
+  support_ticket: "#F97316",
+  sales_note: "#10B981",
+  survey: "#3B82F6",
+  other: "#6B7280",
+};
 
-function DocumentCard({
-  document,
+function EvidenceCard({
+  evidence,
   viewMode,
+  onDelete,
 }: {
-  document: Document;
+  evidence: Evidence;
   viewMode: "grid" | "list";
+  onDelete: (id: string) => void;
 }) {
-  const getStatusIcon = () => {
-    switch (document.status) {
-      case "ready":
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-      case "processing":
-        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
-      case "error":
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-    }
-  };
-
-  const getFileExtension = (filename: string) => {
-    return filename.split(".").pop()?.toUpperCase() || "FILE";
-  };
+  const color = SOURCE_COLORS[evidence.source_type] || "#6B7280";
 
   if (viewMode === "list") {
     return (
@@ -121,36 +67,39 @@ function DocumentCard({
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-all group"
       >
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <FileText className="w-5 h-5 text-primary" />
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: `${color}20` }}
+        >
+          <FileText className="w-5 h-5" style={{ color }} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium text-sm truncate">{document.filename}</h3>
-            <Badge variant="outline" className="text-xs flex-shrink-0">
-              {getFileExtension(document.filename)}
+            <h3 className="font-medium text-sm truncate">{evidence.title}</h3>
+            <Badge
+              variant="outline"
+              className="text-xs flex-shrink-0"
+              style={{ borderColor: `${color}50`, color }}
+            >
+              {evidence.source_type.replace("_", " ")}
             </Badge>
           </div>
-          {document.summary && (
-            <p className="text-xs text-muted-foreground truncate">
-              {document.summary}
-            </p>
-          )}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {evidence.persona && <span>{evidence.persona}</span>}
+            {evidence.segment && <span>{evidence.segment}</span>}
+          </div>
         </div>
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Layers className="w-4 h-4" />
-            <span>{document.chunkCount} chunks</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <HardDrive className="w-4 h-4" />
-            <span>{formatBytes(document.fileSize)}</span>
+            <span>{evidence.chunk_count} chunks</span>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="w-4 h-4" />
-            <span>{formatDate(document.uploadedAt)}</span>
+            <span>
+              {evidence.created_at ? formatDate(evidence.created_at) : "—"}
+            </span>
           </div>
-          {getStatusIcon()}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -167,12 +116,11 @@ function DocumentCard({
               <Eye className="w-4 h-4 mr-2" />
               View Details
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Download className="w-4 h-4 mr-2" />
-              Download
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => onDelete(evidence.id)}
+            >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </DropdownMenuItem>
@@ -190,57 +138,69 @@ function DocumentCard({
       <Card className="group hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <FileText className="w-6 h-6 text-primary" />
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${color}20` }}
+            >
+              <FileText className="w-6 h-6" style={{ color }} />
             </div>
-            <div className="flex items-center gap-2">
-              {getStatusIcon()}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => onDelete(evidence.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          <h3 className="font-medium text-sm mb-1 truncate">{document.filename}</h3>
-          <Badge variant="outline" className="text-xs mb-3">
-            {getFileExtension(document.filename)}
+          <h3 className="font-medium text-sm mb-1 truncate">{evidence.title}</h3>
+          <Badge
+            variant="outline"
+            className="text-xs mb-3"
+            style={{ borderColor: `${color}50`, color }}
+          >
+            {evidence.source_type.replace("_", " ")}
           </Badge>
 
-          {document.summary && (
-            <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-              {document.summary}
-            </p>
-          )}
+          <div className="flex flex-wrap gap-1 mb-3">
+            {evidence.persona && (
+              <Badge variant="secondary" className="text-xs">
+                {evidence.persona}
+              </Badge>
+            )}
+            {evidence.segment && (
+              <Badge variant="secondary" className="text-xs">
+                {evidence.segment}
+              </Badge>
+            )}
+          </div>
 
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border">
             <span className="flex items-center gap-1">
               <Layers className="w-3 h-3" />
-              {document.chunkCount} chunks
+              {evidence.chunk_count} chunks
             </span>
-            <span>{formatBytes(document.fileSize)}</span>
+            <span>
+              {evidence.created_at ? formatDate(evidence.created_at) : "—"}
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -252,44 +212,71 @@ export default function DocumentsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [stats, setStats] = useState<ProblemStats | null>(null);
   const { setUploadModalOpen } = useUIStore();
+  const { items, total, isLoading, setItems, setLoading, removeItem } =
+    useEvidenceStore();
 
-  // Use mock data for now
-  const documents = mockDocuments;
+  const loadEvidence = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await listEvidence(1, 50);
+      setItems(res.items, res.total);
+    } catch (err) {
+      console.error("Failed to load evidence:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [setItems, setLoading]);
 
-  const filteredDocuments = documents.filter((doc) =>
-    doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
+  const loadStats = useCallback(async () => {
+    try {
+      const s = await getProblemStats();
+      setStats(s);
+    } catch {
+      // stats may not be available yet
+    }
+  }, []);
+
+  useEffect(() => {
+    loadEvidence();
+    loadStats();
+  }, [loadEvidence, loadStats]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteEvidence(id);
+      removeItem(id);
+    } catch (err) {
+      console.error("Failed to delete evidence:", err);
+    }
+  };
+
+  const filteredItems = items.filter((e) =>
+    e.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const stats = {
-    total: documents.length,
-    ready: documents.filter((d) => d.status === "ready").length,
-    processing: documents.filter((d) => d.status === "processing").length,
-    totalChunks: documents.reduce((acc, d) => acc + d.chunkCount, 0),
-    totalSize: documents.reduce((acc, d) => acc + d.fileSize, 0),
-  };
+  const totalChunks = items.reduce((acc, e) => acc + e.chunk_count, 0);
 
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-background">
-      {/* Sidebar */}
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="h-16 border-b border-border flex items-center justify-between px-6">
           <div>
-            <h1 className="text-xl font-semibold">Documents</h1>
+            <h1 className="text-xl font-semibold">Evidence</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your knowledge base documents
+              Interviews, tickets, and research data
             </p>
           </div>
           <Button onClick={() => setUploadModalOpen(true)}>
-            <FileText className="w-4 h-4 mr-2" />
-            Upload Document
+            <Plus className="w-4 h-4 mr-2" />
+            Add Evidence
           </Button>
         </header>
 
@@ -301,8 +288,8 @@ export default function DocumentsPage() {
                 <FileText className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-xs text-muted-foreground">Documents</p>
+                <p className="text-2xl font-bold">{total}</p>
+                <p className="text-xs text-muted-foreground">Evidence</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -310,38 +297,37 @@ export default function DocumentsPage() {
                 <Layers className="w-5 h-5 text-nexus-purple" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalChunks}</p>
+                <p className="text-2xl font-bold">{totalChunks}</p>
                 <p className="text-xs text-muted-foreground">Total Chunks</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-nexus-cyan/10 flex items-center justify-center">
-                <HardDrive className="w-5 h-5 text-nexus-cyan" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{formatBytes(stats.totalSize)}</p>
-                <p className="text-xs text-muted-foreground">Total Size</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.ready}</p>
-                <p className="text-xs text-muted-foreground">Ready</p>
-              </div>
-            </div>
-            {stats.processing > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+            {stats && (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-lg bg-nexus-cyan/10 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-nexus-cyan" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{stats.total}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Problems Found
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.processing}</p>
-                  <p className="text-xs text-muted-foreground">Processing</p>
-                </div>
-              </div>
+                {(stats.by_severity.critical ?? 0) > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {stats.by_severity.critical}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Critical</p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -352,16 +338,12 @@ export default function DocumentsPage() {
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search documents..."
+                placeholder="Search evidence..."
                 className="pl-9"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Tooltip>
@@ -391,34 +373,50 @@ export default function DocumentsPage() {
           </div>
         </div>
 
-        {/* Document List */}
+        {/* Evidence List */}
         <div className="flex-1 overflow-auto px-6 pb-6">
-          {viewMode === "grid" ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin mb-4" />
+              <p className="text-muted-foreground">Loading evidence...</p>
+            </div>
+          ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredDocuments.map((doc) => (
-                <DocumentCard key={doc.id} document={doc} viewMode="grid" />
+              {filteredItems.map((e) => (
+                <EvidenceCard
+                  key={e.id}
+                  evidence={e}
+                  viewMode="grid"
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredDocuments.map((doc) => (
-                <DocumentCard key={doc.id} document={doc} viewMode="list" />
+              {filteredItems.map((e) => (
+                <EvidenceCard
+                  key={e.id}
+                  evidence={e}
+                  viewMode="list"
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           )}
 
-          {filteredDocuments.length === 0 && (
+          {!isLoading && filteredItems.length === 0 && (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No documents found</h3>
+              <h3 className="text-lg font-medium mb-2">No evidence found</h3>
               <p className="text-muted-foreground mb-4">
                 {searchQuery
                   ? "Try a different search term"
-                  : "Upload your first document to get started"}
+                  : "Add your first piece of evidence to get started"}
               </p>
               {!searchQuery && (
                 <Button onClick={() => setUploadModalOpen(true)}>
-                  Upload Document
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Evidence
                 </Button>
               )}
             </div>
@@ -426,7 +424,6 @@ export default function DocumentsPage() {
         </div>
       </main>
 
-      {/* Modals */}
       <UploadModal />
       <SearchCommand />
     </div>

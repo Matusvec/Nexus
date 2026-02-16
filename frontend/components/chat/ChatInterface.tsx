@@ -4,31 +4,25 @@ import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
-  Paperclip,
   Sparkles,
   ChevronDown,
   FileText,
-  ExternalLink,
   AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PERSONAS, type PersonaId, type Message, type HumanTask } from "@/lib/types";
+import { PERSONAS, type PersonaId, type Message } from "@/lib/types";
 import { useChatStore } from "@/lib/store";
+import { findSimilarProblems, listProblems } from "@/lib/api";
 import { cn, generateId } from "@/lib/utils";
 
 // Persona Selector Component
@@ -83,7 +77,7 @@ function PersonaSelector() {
                 <p className="text-xs text-muted-foreground">{persona.role}</p>
               </div>
               {activePersonaId === id && (
-                <Badge variant="success" className="text-xs">Active</Badge>
+                <Badge variant="default" className="text-xs">Active</Badge>
               )}
             </DropdownMenuItem>
           );
@@ -93,96 +87,12 @@ function PersonaSelector() {
   );
 }
 
-// Human Task Card Component
-function HumanTaskCard({ task }: { task: HumanTask }) {
-  const statusColors = {
-    pending: "text-yellow-400 bg-yellow-400/10",
-    "in-progress": "text-blue-400 bg-blue-400/10",
-    completed: "text-green-400 bg-green-400/10",
-    cancelled: "text-red-400 bg-red-400/10",
-  };
-
-  const StatusIcon = {
-    pending: Clock,
-    "in-progress": Sparkles,
-    completed: CheckCircle2,
-    cancelled: AlertTriangle,
-  }[task.status];
-
-  return (
-    <Card className="border-yellow-500/30 bg-yellow-500/5">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3 mb-3">
-          <div className={cn("p-2 rounded-lg", statusColors[task.status])}>
-            <StatusIcon className="w-4 h-4" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-sm">{task.title}</h4>
-              <Badge
-                variant={task.status === "completed" ? "success" : "warning"}
-                className="text-xs"
-              >
-                {task.status}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">{task.type}</p>
-          </div>
-        </div>
-
-        {/* Instructions */}
-        <div className="space-y-2 mb-4">
-          <p className="text-xs font-medium text-muted-foreground">
-            Instructions:
-          </p>
-          <ol className="space-y-1">
-            {task.instructions.map((instruction, idx) => (
-              <li key={idx} className="flex gap-2 text-sm">
-                <span className="text-muted-foreground">{idx + 1}.</span>
-                <span>{instruction}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        {/* Safety Warnings */}
-        {task.safetyWarnings && task.safetyWarnings.length > 0 && (
-          <div className="space-y-2 mb-4">
-            <p className="text-xs font-medium text-yellow-400 flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              Safety Warnings:
-            </p>
-            <ul className="space-y-1">
-              {task.safetyWarnings.map((warning, idx) => (
-                <li
-                  key={idx}
-                  className="text-sm text-yellow-200/80 flex items-start gap-2"
-                >
-                  <span>•</span>
-                  <span>{warning}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Expected Output */}
-        <p className="text-xs text-muted-foreground mb-4">
-          <span className="font-medium">Expected output:</span>{" "}
-          {task.expectedOutput}
-        </p>
-
-        {/* Upload/Complete Button */}
-        {task.status !== "completed" && (
-          <Button className="w-full" size="sm">
-            <Upload className="w-4 h-4 mr-2" />
-            Upload Results & Complete Task
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: "text-red-400",
+  high: "text-orange-400",
+  medium: "text-yellow-400",
+  low: "text-green-400",
+};
 
 // Message Bubble Component
 function MessageBubble({ message }: { message: Message }) {
@@ -195,7 +105,6 @@ function MessageBubble({ message }: { message: Message }) {
       animate={{ opacity: 1, y: 0 }}
       className={cn("flex gap-3", isUser && "flex-row-reverse")}
     >
-      {/* Avatar */}
       {!isUser && persona && (
         <Avatar className="w-8 h-8 flex-shrink-0">
           <AvatarFallback
@@ -208,7 +117,6 @@ function MessageBubble({ message }: { message: Message }) {
       )}
 
       <div className={cn("flex-1 max-w-[80%]", isUser && "text-right")}>
-        {/* Name & Time */}
         {!isUser && persona && (
           <div className="flex items-center gap-2 mb-1">
             <span
@@ -226,7 +134,6 @@ function MessageBubble({ message }: { message: Message }) {
           </div>
         )}
 
-        {/* Message Content */}
         <div
           className={cn(
             "rounded-2xl px-4 py-2 inline-block text-left",
@@ -241,32 +148,42 @@ function MessageBubble({ message }: { message: Message }) {
           )}
         </div>
 
-        {/* Sources */}
+        {/* Problem sources */}
         {message.sources && message.sources.length > 0 && (
-          <div className="mt-2 space-y-1">
-            <p className="text-xs text-muted-foreground">Sources:</p>
-            <div className="flex flex-wrap gap-1">
-              {message.sources.map((source, idx) => (
-                <Badge
-                  key={idx}
-                  variant="outline"
-                  className="text-xs cursor-pointer hover:bg-muted"
-                >
-                  <FileText className="w-3 h-3 mr-1" />
-                  {source.documentName}
-                  <Badge variant="info" className="ml-1 text-xs py-0 px-1">
-                    L{source.layer}
+          <div className="mt-2 space-y-2">
+            <p className="text-xs text-muted-foreground">Related problems:</p>
+            {message.sources.map((problem, idx) => (
+              <div
+                key={idx}
+                className="text-left p-2 rounded-lg border border-border bg-card text-xs"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle
+                    className={cn(
+                      "w-3 h-3",
+                      SEVERITY_COLORS[problem.severity] || "text-muted-foreground"
+                    )}
+                  />
+                  <span className="font-medium">{problem.problem_statement}</span>
+                  <Badge variant="outline" className="text-xs ml-auto">
+                    {problem.severity}
                   </Badge>
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Human Task */}
-        {message.humanTask && (
-          <div className="mt-3">
-            <HumanTaskCard task={message.humanTask} />
+                </div>
+                <p className="text-muted-foreground italic">
+                  &ldquo;{problem.quote_text.slice(0, 120)}
+                  {problem.quote_text.length > 120 ? "..." : ""}&rdquo;
+                </p>
+                {problem.tags.length > 0 && (
+                  <div className="flex gap-1 mt-1">
+                    {problem.tags.map((t) => (
+                      <Badge key={t} variant="secondary" className="text-xs py-0">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -279,63 +196,91 @@ export default function ChatInterface() {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { messages, addMessage, activePersonaId, isStreaming } = useChatStore();
+  const {
+    messages,
+    addMessage,
+    activePersonaId,
+    isStreaming,
+    setStreaming,
+  } = useChatStore();
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Handle send message
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
+    const query = input.trim();
 
-    // Add user message
     const userMessage: Message = {
       id: generateId(),
       role: "user",
-      content: input.trim(),
+      content: query,
       timestamp: new Date().toISOString(),
     };
     addMessage(userMessage);
+    setInput("");
+    setStreaming(true);
 
-    // Simulate AI response (in production, this would call the API)
-    setTimeout(() => {
-      const persona = PERSONAS[activePersonaId];
+    try {
+      // Try similarity search first; fall back to keyword search
+      let responseText = "";
+      let sources: Message["sources"] = [];
+
+      try {
+        const similar = await findSimilarProblems(query, 5, 0.3);
+        if (similar.results.length > 0) {
+          sources = similar.results.map((r) => r.problem);
+          responseText = `I found ${similar.results.length} related problem${similar.results.length > 1 ? "s" : ""} in your evidence:\n\n`;
+          similar.results.forEach((r, i) => {
+            responseText += `${i + 1}. **${r.problem.problem_statement}** (${r.problem.severity}, score: ${(r.score * 100).toFixed(0)}%)\n`;
+          });
+        }
+      } catch {
+        // Embeddings may not exist yet — fall back to listing
+      }
+
+      if (!sources || sources.length === 0) {
+        // Fall back to listing problems
+        const problems = await listProblems(1, 10);
+        if (problems.items.length > 0) {
+          sources = problems.items;
+          responseText = `I couldn't do a semantic search (embeddings may not be generated yet), but here are the ${problems.total} problems extracted so far:\n\n`;
+          problems.items.forEach((p, i) => {
+            responseText += `${i + 1}. **${p.problem_statement}** (${p.severity})\n`;
+          });
+          responseText += `\nTo enable semantic search, run the "Embed Problems" job from the API.`;
+        } else {
+          responseText =
+            "No problems have been extracted yet. Add some evidence first, then extract problems from it.";
+        }
+      }
+
       const aiMessage: Message = {
         id: generateId(),
         role: "assistant",
-        content: `${persona.greeting}\n\nI've analyzed your question about "${input.slice(0, 50)}..."\n\nBased on the documents in your knowledge base, here's what I found:\n\n1. The RAPTOR tree structure allows for both detailed and high-level retrieval\n2. Layer 0 contains the original document chunks\n3. Higher layers contain summarized information\n\nWould you like me to dive deeper into any specific aspect?`,
+        content: responseText,
         personaId: activePersonaId,
         timestamp: new Date().toISOString(),
-        sources: [
-          {
-            documentId: "doc-1",
-            documentName: "RAPTOR_Paper.pdf",
-            chunkId: "chunk-1",
-            content: "RAPTOR builds a hierarchical tree structure...",
-            layer: 0,
-            relevanceScore: 0.92,
-          },
-          {
-            documentId: "doc-2",
-            documentName: "Implementation_Notes.md",
-            chunkId: "chunk-2",
-            content: "The collapsed tree method performs better...",
-            layer: 1,
-            relevanceScore: 0.87,
-          },
-        ],
+        sources,
       };
       addMessage(aiMessage);
-    }, 1000);
-
-    setInput("");
+    } catch (err) {
+      const errorMessage: Message = {
+        id: generateId(),
+        role: "assistant",
+        content: `Sorry, I encountered an error: ${err instanceof Error ? err.message : "Unknown error"}`,
+        personaId: activePersonaId,
+        timestamp: new Date().toISOString(),
+      };
+      addMessage(errorMessage);
+    } finally {
+      setStreaming(false);
+    }
   };
 
-  // Handle keyboard shortcuts
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -352,14 +297,13 @@ export default function ChatInterface() {
         <PersonaSelector />
         <Badge variant="outline" className="text-xs">
           <Sparkles className="w-3 h-3 mr-1" />
-          RAPTOR Active
+          Problem Search
         </Badge>
       </div>
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-6">
-          {/* Welcome message */}
           {messages.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -373,16 +317,16 @@ export default function ChatInterface() {
                 {activePersona.avatar}
               </div>
               <h3 className="text-lg font-semibold mb-2">
-                Chat with {activePersona.name}
+                Search Problems
               </h3>
               <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
-                {activePersona.description}
+                Ask about user problems extracted from your evidence. I&apos;ll find the most relevant ones.
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 {[
-                  "Summarize all documents",
-                  "Explain the main concepts",
-                  "Find related topics",
+                  "What are the most critical issues?",
+                  "Show performance problems",
+                  "What do users struggle with?",
                 ].map((suggestion) => (
                   <Button
                     key={suggestion}
@@ -398,14 +342,12 @@ export default function ChatInterface() {
             </motion.div>
           )}
 
-          {/* Message list */}
           <AnimatePresence>
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} />
             ))}
           </AnimatePresence>
 
-          {/* Typing indicator */}
           {isStreaming && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -439,16 +381,13 @@ export default function ChatInterface() {
       {/* Input Area */}
       <div className="p-4 border-t border-border">
         <div className="flex items-end gap-2">
-          <Button variant="ghost" size="icon" className="flex-shrink-0">
-            <Paperclip className="w-4 h-4" />
-          </Button>
           <div className="flex-1 relative">
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Ask ${activePersona.name} anything...`}
+              placeholder="Search for problems..."
               className="min-h-[44px] max-h-[200px] pr-12 resize-none"
               rows={1}
             />
@@ -463,7 +402,7 @@ export default function ChatInterface() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          Press Enter to send, Shift+Enter for new line
+          Press Enter to search, Shift+Enter for new line
         </p>
       </div>
     </div>

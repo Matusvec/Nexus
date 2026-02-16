@@ -1,43 +1,103 @@
 import { create } from "zustand";
 import type {
-  Document,
+  Evidence,
+  ProblemMention,
+  ProblemCluster,
   DocumentGroup,
   Message,
-  HumanTask,
   PersonaId,
   CanvasNode,
   CanvasEdge,
+  JobStatusResponse,
 } from "@/lib/types";
 
 // ============================================
-// DOCUMENTS STORE
+// EVIDENCE STORE (replaces documents)
 // ============================================
-interface DocumentsState {
-  documents: Document[];
-  selectedDocumentId: string | null;
+interface EvidenceState {
+  items: Evidence[];
+  selectedId: string | null;
   isLoading: boolean;
-  setDocuments: (documents: Document[]) => void;
-  addDocument: (document: Document) => void;
-  removeDocument: (id: string) => void;
-  selectDocument: (id: string | null) => void;
+  total: number;
+  page: number;
+  setItems: (items: Evidence[], total?: number) => void;
+  addItem: (item: Evidence) => void;
+  removeItem: (id: string) => void;
+  select: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
+  setPage: (page: number) => void;
 }
 
-export const useDocumentsStore = create<DocumentsState>((set) => ({
-  documents: [],
-  selectedDocumentId: null,
+export const useEvidenceStore = create<EvidenceState>((set) => ({
+  items: [],
+  selectedId: null,
   isLoading: false,
-  setDocuments: (documents) => set({ documents }),
-  addDocument: (document) =>
-    set((state) => ({ documents: [...state.documents, document] })),
-  removeDocument: (id) =>
+  total: 0,
+  page: 1,
+  setItems: (items, total) =>
+    set({ items, ...(total !== undefined ? { total } : {}) }),
+  addItem: (item) =>
+    set((state) => ({ items: [item, ...state.items], total: state.total + 1 })),
+  removeItem: (id) =>
     set((state) => ({
-      documents: state.documents.filter((d) => d.id !== id),
-      selectedDocumentId:
-        state.selectedDocumentId === id ? null : state.selectedDocumentId,
+      items: state.items.filter((e) => e.id !== id),
+      total: state.total - 1,
+      selectedId: state.selectedId === id ? null : state.selectedId,
     })),
-  selectDocument: (id) => set({ selectedDocumentId: id }),
+  select: (id) => set({ selectedId: id }),
   setLoading: (loading) => set({ isLoading: loading }),
+  setPage: (page) => set({ page }),
+}));
+
+// ============================================
+// PROBLEMS STORE
+// ============================================
+interface ProblemsState {
+  items: ProblemMention[];
+  total: number;
+  page: number;
+  isLoading: boolean;
+  setItems: (items: ProblemMention[], total?: number) => void;
+  setLoading: (loading: boolean) => void;
+  setPage: (page: number) => void;
+}
+
+export const useProblemsStore = create<ProblemsState>((set) => ({
+  items: [],
+  total: 0,
+  page: 1,
+  isLoading: false,
+  setItems: (items, total) =>
+    set({ items, ...(total !== undefined ? { total } : {}) }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setPage: (page) => set({ page }),
+}));
+
+// ============================================
+// JOBS STORE
+// ============================================
+interface JobsState {
+  activeJobs: Map<string, JobStatusResponse>;
+  setJob: (jobId: string, status: JobStatusResponse) => void;
+  removeJob: (jobId: string) => void;
+  clearJobs: () => void;
+}
+
+export const useJobsStore = create<JobsState>((set) => ({
+  activeJobs: new Map(),
+  setJob: (jobId, status) =>
+    set((state) => {
+      const next = new Map(state.activeJobs);
+      next.set(jobId, status);
+      return { activeJobs: next };
+    }),
+  removeJob: (jobId) =>
+    set((state) => {
+      const next = new Map(state.activeJobs);
+      next.delete(jobId);
+      return { activeJobs: next };
+    }),
+  clearJobs: () => set({ activeJobs: new Map() }),
 }));
 
 // ============================================
@@ -90,7 +150,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   addGroup: (group) => set((state) => ({ groups: [...state.groups, group] })),
   updateGroup: (id, updates) =>
     set((state) => ({
-      groups: state.groups.map((g) => (g.id === id ? { ...g, ...updates } : g)),
+      groups: state.groups.map((g) =>
+        g.id === id ? { ...g, ...updates } : g
+      ),
     })),
   removeGroup: (id) =>
     set((state) => ({ groups: state.groups.filter((g) => g.id !== id) })),
@@ -103,14 +165,12 @@ interface ChatState {
   messages: Message[];
   activePersonaId: PersonaId;
   isStreaming: boolean;
-  conversationId: string | null;
   isSidebarOpen: boolean;
   addMessage: (message: Message) => void;
   updateMessage: (id: string, updates: Partial<Message>) => void;
   clearMessages: () => void;
   setActivePersona: (id: PersonaId) => void;
   setStreaming: (streaming: boolean) => void;
-  setConversationId: (id: string | null) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
 }
@@ -119,7 +179,6 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   activePersonaId: "max",
   isStreaming: false,
-  conversationId: null,
   isSidebarOpen: true,
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
@@ -132,39 +191,9 @@ export const useChatStore = create<ChatState>((set) => ({
   clearMessages: () => set({ messages: [] }),
   setActivePersona: (id) => set({ activePersonaId: id }),
   setStreaming: (streaming) => set({ isStreaming: streaming }),
-  setConversationId: (id) => set({ conversationId: id }),
-  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  toggleSidebar: () =>
+    set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
-}));
-
-// ============================================
-// TASKS STORE
-// ============================================
-interface TasksState {
-  tasks: HumanTask[];
-  activeTaskId: string | null;
-  setTasks: (tasks: HumanTask[]) => void;
-  addTask: (task: HumanTask) => void;
-  updateTask: (id: string, updates: Partial<HumanTask>) => void;
-  removeTask: (id: string) => void;
-  setActiveTask: (id: string | null) => void;
-}
-
-export const useTasksStore = create<TasksState>((set) => ({
-  tasks: [],
-  activeTaskId: null,
-  setTasks: (tasks) => set({ tasks }),
-  addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
-  updateTask: (id, updates) =>
-    set((state) => ({
-      tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-    })),
-  removeTask: (id) =>
-    set((state) => ({
-      tasks: state.tasks.filter((t) => t.id !== id),
-      activeTaskId: state.activeTaskId === id ? null : state.activeTaskId,
-    })),
-  setActiveTask: (id) => set({ activeTaskId: id }),
 }));
 
 // ============================================

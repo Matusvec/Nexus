@@ -23,7 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { useUIStore, useChatStore, useDocumentsStore } from "@/lib/store";
+import { useUIStore, useChatStore, useEvidenceStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -36,7 +36,7 @@ const navItems = [
   {
     href: "/documents",
     icon: FileText,
-    label: "Documents",
+    label: "Evidence",
     shortcut: "⌘2",
   },
 ];
@@ -50,7 +50,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { setUploadModalOpen, setSearchOpen, setSettingsModalOpen } = useUIStore();
   const { isSidebarOpen, toggleSidebar } = useChatStore();
-  const { documents } = useDocumentsStore();
+  const { items: evidenceItems } = useEvidenceStore();
 
   return (
     <motion.aside
@@ -113,7 +113,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           onClick={() => setUploadModalOpen(true)}
         >
           <Plus className="w-4 h-4" />
-          {!collapsed && <span className="ml-2">Upload Document</span>}
+          {!collapsed && <span className="ml-2">Add Evidence</span>}
         </Button>
       </div>
 
@@ -187,15 +187,15 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       {/* Stats */}
       {!collapsed && (
         <div className="p-3 mx-3 mb-3 rounded-lg bg-muted/50">
-          <p className="text-xs text-muted-foreground mb-2">Knowledge Base</p>
+          <p className="text-xs text-muted-foreground mb-2">Research Data</p>
           <div className="grid grid-cols-2 gap-2 text-center">
             <div>
-              <p className="text-lg font-bold text-primary">{documents.length}</p>
-              <p className="text-xs text-muted-foreground">Documents</p>
+              <p className="text-lg font-bold text-primary">{evidenceItems.length}</p>
+              <p className="text-xs text-muted-foreground">Evidence</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-nexus-purple">3</p>
-              <p className="text-xs text-muted-foreground">Layers</p>
+              <p className="text-lg font-bold text-nexus-purple">&mdash;</p>
+              <p className="text-xs text-muted-foreground">Problems</p>
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   FileText,
-  Folder,
+  AlertTriangle,
   Clock,
   ArrowRight,
   Command,
@@ -17,12 +17,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useUIStore, useDocumentsStore, useCanvasStore } from "@/lib/store";
+import { useUIStore, useEvidenceStore, useProblemsStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 interface SearchResult {
   id: string;
-  type: "document" | "group" | "recent";
+  type: "evidence" | "problem" | "recent";
   title: string;
   subtitle?: string;
   icon: typeof FileText;
@@ -30,8 +30,8 @@ interface SearchResult {
 
 export default function SearchCommand() {
   const { isSearchOpen, setSearchOpen } = useUIStore();
-  const { documents } = useDocumentsStore();
-  const { groups } = useCanvasStore();
+  const { items: evidenceItems } = useEvidenceStore();
+  const { items: problemItems } = useProblemsStore();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -39,37 +39,37 @@ export default function SearchCommand() {
   // Generate search results
   const results: SearchResult[] = [];
 
-  // Add documents
-  documents
+  // Add evidence items
+  evidenceItems
     .filter(
-      (doc) =>
-        !query || doc.filename.toLowerCase().includes(query.toLowerCase())
+      (ev) =>
+        !query || ev.title.toLowerCase().includes(query.toLowerCase())
     )
     .slice(0, 5)
-    .forEach((doc) => {
+    .forEach((ev) => {
       results.push({
-        id: doc.id,
-        type: "document",
-        title: doc.filename,
-        subtitle: `${doc.chunkCount} chunks`,
+        id: ev.id,
+        type: "evidence",
+        title: ev.title,
+        subtitle: ev.source_type,
         icon: FileText,
       });
     });
 
-  // Add groups
-  groups
+  // Add problems
+  problemItems
     .filter(
-      (group) =>
-        !query || group.name.toLowerCase().includes(query.toLowerCase())
+      (p) =>
+        !query || p.problem_statement.toLowerCase().includes(query.toLowerCase())
     )
-    .slice(0, 3)
-    .forEach((group) => {
+    .slice(0, 5)
+    .forEach((p) => {
       results.push({
-        id: group.id,
-        type: "group",
-        title: group.name,
-        subtitle: `${group.documentIds.length} documents`,
-        icon: Folder,
+        id: p.id,
+        type: "problem",
+        title: p.problem_statement,
+        subtitle: `${p.severity} severity`,
+        icon: AlertTriangle,
       });
     });
 
@@ -158,7 +158,7 @@ export default function SearchCommand() {
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Search documents, groups, or ask a question..."
+            placeholder="Search evidence, problems, or ask a question..."
             className="border-0 focus-visible:ring-0 text-base py-6"
           />
           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
@@ -178,14 +178,14 @@ export default function SearchCommand() {
               </div>
             ) : (
               <>
-                {/* Documents Section */}
-                {results.filter((r) => r.type === "document").length > 0 && (
+                {/* Evidence Section */}
+                {results.filter((r) => r.type === "evidence").length > 0 && (
                   <div className="mb-2">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider px-2 py-1">
-                      Documents
+                      Evidence
                     </p>
                     {results
-                      .filter((r) => r.type === "document")
+                      .filter((r) => r.type === "evidence")
                       .map((result, idx) => {
                         const globalIdx = results.indexOf(result);
                         return (
@@ -201,14 +201,14 @@ export default function SearchCommand() {
                   </div>
                 )}
 
-                {/* Groups Section */}
-                {results.filter((r) => r.type === "group").length > 0 && (
+                {/* Problems Section */}
+                {results.filter((r) => r.type === "problem").length > 0 && (
                   <div className="mb-2">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider px-2 py-1">
-                      Groups
+                      Problems
                     </p>
                     {results
-                      .filter((r) => r.type === "group")
+                      .filter((r) => r.type === "problem")
                       .map((result) => {
                         const globalIdx = results.indexOf(result);
                         return (
