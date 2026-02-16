@@ -1,6 +1,7 @@
 """Quick script to verify Supabase connection and table access."""
 
 import asyncio
+import ssl as ssl_module
 import sys
 
 from sqlalchemy import text
@@ -10,8 +11,18 @@ from app.config import settings
 
 
 async def test_connection():
-    print(f"Connecting to: {settings.database_url[:40]}...")
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+    db_url = settings.database_url.replace("?ssl=require", "").replace("&ssl=require", "")
+    print(f"Connecting to: {db_url[:40]}...")
+
+    # SSL config for Supabase
+    connect_args: dict = {}
+    if "supabase" in db_url or "ssl=require" in settings.database_url:
+        ctx = ssl_module.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl_module.CERT_NONE
+        connect_args["ssl"] = ctx
+
+    engine = create_async_engine(db_url, pool_pre_ping=True, connect_args=connect_args)
 
     try:
         async with engine.connect() as conn:

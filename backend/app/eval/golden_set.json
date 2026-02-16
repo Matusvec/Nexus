@@ -1,0 +1,27 @@
+[
+  {
+    "chunk_text": "I've been trying to export my reports for weeks and it keeps failing. Every time I click export, the spinner runs for about two minutes and then I get a generic error message. This is really frustrating because my team needs these reports for our quarterly review.",
+    "expected_problems": [
+      {
+        "problem_statement": "Report export functionality fails with generic error after timeout",
+        "severity": "critical",
+        "quote_text": "Every time I click export, the spinner runs for about two minutes and then I get a generic error message"
+      }
+    ]
+  },
+  {
+    "chunk_text": "The search feature is too slow. When I search for a customer by name, it takes 10 to 15 seconds to return results. Also, the filters don't work properly - when I filter by date range, it still shows results outside that range.",
+    "expected_problems": [
+      {
+        "problem_statement": "Search performance is too slow, taking 10-15 seconds per query",
+        "severity": "high",
+        "quote_text": "When I search for a customer by name, it takes 10 to 15 seconds to return results"
+      },
+      {
+        "problem_statement": "Date range filter returns results outside the specified range",
+        "severity": "medium",
+        "quote_text": "when I filter by date range, it still shows results outside that range"
+      }
+    ]
+  }
+]

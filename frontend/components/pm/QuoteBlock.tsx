@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 type Severity = "critical" | "high" | "medium" | "low";
 
 const severityClasses: Record<Severity, string> = {
-  critical: "border-red-300 bg-red-50 text-red-700",
-  high: "border-orange-300 bg-orange-50 text-orange-700",
-  medium: "border-amber-300 bg-amber-50 text-amber-700",
-  low: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  critical: "border-red-500/30 bg-red-500/10 text-red-400",
+  high: "border-orange-500/30 bg-orange-500/10 text-orange-400",
+  medium: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+  low: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
 };
 
 interface QuoteBlockProps {

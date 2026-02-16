@@ -27,6 +27,8 @@ class ProblemMentionResponse(BaseModel):
     quote_text: str
     quote_start: int | None = None
     quote_end: int | None = None
+    persona: str | None = None
+    segment: str | None = None
     tags: list[str] = []
     created_at: datetime | None = None
 
@@ -44,3 +46,22 @@ class ProblemMentionCreate(BaseModel):
 
 class LLMProblemsResponse(BaseModel):
     problems: list[ProblemMentionCreate] = []
+
+
+class ProblemMentionListResponse(BaseModel):
+    items: list[ProblemMentionResponse]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+
+
+class SimilarProblemResult(BaseModel):
+    """A problem mention returned from similarity search, with distance score."""
+    problem: ProblemMentionResponse
+    score: float  # cosine similarity (0–1, higher = more similar)
+
+
+class SimilarProblemsResponse(BaseModel):
+    query_text: str
+    results: list[SimilarProblemResult]

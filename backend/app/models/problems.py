@@ -16,10 +16,12 @@ class ProblemMention(Base):
         PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     evidence_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("evidence.id"), nullable=False
+        PGUUID(as_uuid=True), ForeignKey("evidence.id", ondelete="CASCADE"), nullable=False
     )
     chunk_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("evidence_chunks.id"), nullable=False
+        PGUUID(as_uuid=True),
+        ForeignKey("evidence_chunks.id", ondelete="CASCADE"),
+        nullable=False,
     )
     problem_statement: Mapped[str] = mapped_column(Text, nullable=False)
     persona: Mapped[str | None] = mapped_column(Text)
@@ -39,3 +41,6 @@ class ProblemMention(Base):
 
     evidence = relationship("Evidence", back_populates="problem_mentions")
     chunk = relationship("EvidenceChunk", back_populates="problem_mentions")
+    embedding = relationship(
+        "ProblemEmbedding", back_populates="problem", uselist=False
+    )

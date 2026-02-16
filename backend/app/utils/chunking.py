@@ -33,8 +33,8 @@ def _split_sentences(text: str) -> list[dict]:
 
 
 def _estimate_tokens(text: str) -> int:
-    """Rough token estimate: ~1 token per 4 characters (works for English).
-    Gemini/OpenAI tokenizers average 3.5-4.5 chars per token."""
+    """Rough token estimate: ~1 token per 4 characters (English-heavy text).
+    This will be less accurate for CJK text, code, or URL-heavy content."""
     return max(1, len(text) // 4)
 
 

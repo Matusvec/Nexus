@@ -1,22 +1,14 @@
 import PageHeader from "@/components/pm/PageHeader";
 import Link from "next/link";
-
-async function safeFetch<T>(url: string): Promise<T | null> {
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
+import { pmFetchSafe } from "@/lib/pm/api";
+import type { PaginatedResponse, Evidence, ProblemMention, Cluster, RoadmapResponse } from "@/lib/pm/types";
 
 export default async function PMDashboardPage() {
   const [evidence, problems, clusters, roadmap] = await Promise.all([
-    safeFetch<{ total: number }>("/api/v1/evidence?page=1&per_page=1"),
-    safeFetch<{ total: number }>("/api/v1/problems?page=1&per_page=1"),
-    safeFetch<{ total: number }>("/api/v1/clusters?page=1&per_page=1"),
-    safeFetch<{ total: number }>("/api/v1/roadmap"),
+    pmFetchSafe<PaginatedResponse<Evidence>>("/evidence?page=1&per_page=1"),
+    pmFetchSafe<PaginatedResponse<ProblemMention>>("/problems?page=1&per_page=1"),
+    pmFetchSafe<PaginatedResponse<Cluster>>("/clusters?page=1&per_page=1"),
+    pmFetchSafe<RoadmapResponse>("/roadmap"),
   ]);
 
   const cards = [
@@ -34,7 +26,7 @@ export default async function PMDashboardPage() {
         actions={
           <Link
             href="/pm/evidence/upload"
-            className="rounded-full bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-white shadow-sm"
+            className="rounded-full bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm"
           >
             Upload Evidence
           </Link>
@@ -46,7 +38,7 @@ export default async function PMDashboardPage() {
           <Link
             key={card.label}
             href={card.href}
-            className="group rounded-2xl border border-border bg-white/70 p-4 transition hover:-translate-y-1 hover:shadow-md"
+            className="group rounded-2xl border border-border bg-card/70 p-4 transition hover:-translate-y-1 hover:shadow-md"
           >
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {card.label}
@@ -60,7 +52,7 @@ export default async function PMDashboardPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-white/60 p-5">
+        <div className="rounded-2xl border border-border bg-card/60 p-5">
           <h2 className="text-xl font-semibold">Next Best Actions</h2>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li>Upload new evidence and trigger extraction.</li>
@@ -68,7 +60,7 @@ export default async function PMDashboardPage() {
             <li>Run clustering to surface the biggest pain themes.</li>
           </ul>
         </div>
-        <div className="rounded-2xl border border-border bg-white/60 p-5">
+        <div className="rounded-2xl border border-border bg-card/60 p-5">
           <h2 className="text-xl font-semibold">Pipeline Notes</h2>
           <p className="mt-3 text-sm text-muted-foreground">
             This workspace is tuned for fast reviews. Summaries stay high level,

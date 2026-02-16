@@ -4,10 +4,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str
+    redis_url: str = "redis://localhost:6379/0"
     chunk_max_tokens: int = 500
     chunk_overlap_tokens: int = 50
     gemini_api_key: str
     gemini_model: str = "gemini-2.0-flash"
+    gemini_embedding_model: str = "text-embedding-004"
+
+    # Auth — comma-separated API keys; empty = auth disabled (dev mode)
+    api_keys: str = ""
+
+    # Rate limiting
+    rate_limit_requests: int = 60
+    rate_limit_window: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
