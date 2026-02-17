@@ -12,6 +12,12 @@ class ExtractProblemsRequest(BaseModel):
     max_chunks: int | None = None
 
 
+class ExtractProblemsResponse(BaseModel):
+    evidence_id: UUID
+    extracted_count: int
+    problems: list["ProblemMentionResponse"] = []
+
+
 class ProblemMentionResponse(BaseModel):
     id: UUID
     evidence_id: UUID

@@ -6,16 +6,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Nexus - Your Personal Team of AI Research Specialists",
+  title: "Nexus PM - Problem Management",
   description:
-    "Transform document chaos into an intelligent, collaborative AI workspace. Organize 1000s of documents, query with human-like understanding, and delegate work to specialist AI personas.",
+    "Evidence-driven problem discovery and management platform. Upload evidence, extract problems, cluster insights, and build your product roadmap.",
   keywords: [
-    "AI",
-    "RAG",
-    "RAPTOR",
-    "document management",
-    "research assistant",
-    "knowledge base",
+    "product management",
+    "problem discovery",
+    "evidence-driven",
+    "roadmap",
+    "clustering",
   ],
 };
 
