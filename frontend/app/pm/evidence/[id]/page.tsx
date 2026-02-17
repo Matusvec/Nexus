@@ -1,4 +1,5 @@
 import PageHeader from "@/components/pm/PageHeader";
+import DeleteEvidenceButton from "@/components/pm/DeleteEvidenceButton";
 import { EmptyState } from "@/components/pm/shared/EmptyState";
 import { SeverityBadge } from "@/components/pm/shared/SeverityBadge";
 import { pmFetchSafe } from "@/lib/pm/api";
@@ -48,6 +49,12 @@ export default async function EvidenceDetailPage({
         description={`${evidence.source_type.replace("_", " ")} · ${evidence.persona ?? "Unknown persona"} · ${evidence.segment ?? "Unknown segment"}`}
         backLabel="Back to Evidence"
         backHref="/pm/evidence"
+        actions={
+          <DeleteEvidenceButton
+            evidenceId={id}
+            evidenceTitle={evidence.title}
+          />
+        }
       />
 
       {/* Metadata bar */}

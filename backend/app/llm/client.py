@@ -177,6 +177,7 @@ class GeminiClient:
                 model=settings.gemini_embedding_model,
                 content=text,
                 task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=768,
             )
             record.latency_ms = (time.perf_counter() - start) * 1000
             record.input_tokens = len(text) // 4

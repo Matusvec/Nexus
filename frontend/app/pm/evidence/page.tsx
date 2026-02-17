@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PageHeader from "@/components/pm/PageHeader";
+import DeleteEvidenceButton from "@/components/pm/DeleteEvidenceButton";
 import { EmptyState } from "@/components/pm/shared/EmptyState";
 import { pmFetchSafe } from "@/lib/pm/api";
 import type { Evidence, PaginatedResponse } from "@/lib/pm/types";
@@ -54,6 +55,7 @@ export default async function EvidencePage({
                   <th className="px-4 py-3">Segment</th>
                   <th className="px-4 py-3 text-right">Chunks</th>
                   <th className="px-4 py-3">Created</th>
+                  <th className="px-4 py-3 w-10"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -88,6 +90,13 @@ export default async function EvidencePage({
                       {item.created_at
                         ? new Date(item.created_at).toLocaleDateString()
                         : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <DeleteEvidenceButton
+                        evidenceId={item.id}
+                        evidenceTitle={item.title}
+                        variant="icon"
+                      />
                     </td>
                   </tr>
                 ))}

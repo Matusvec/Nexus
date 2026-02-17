@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = 50
     gemini_api_key: str
     gemini_model: str = "gemini-2.0-flash"
-    gemini_embedding_model: str = "text-embedding-004"
+    gemini_embedding_model: str = "gemini-embedding-001"
 
     # Auth — comma-separated API keys; empty = auth disabled (dev mode)
     api_keys: str = ""

@@ -1,4 +1,5 @@
 import PageHeader from "@/components/pm/PageHeader";
+import RunPipelineButton from "@/components/pm/RunPipelineButton";
 import { ClusterGrid } from "@/components/pm/clusters/ClusterGrid";
 import { EmptyState } from "@/components/pm/shared/EmptyState";
 import { pmFetchSafe } from "@/lib/pm/api";
@@ -17,6 +18,7 @@ export default async function ClustersPage() {
       <PageHeader
         title="Clusters"
         description="Grouped problem themes ranked by frequency. Click a cluster to drill into its members and generate proposals."
+        actions={<RunPipelineButton />}
       />
 
       {clusters.length === 0 ? (
