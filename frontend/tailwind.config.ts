@@ -50,14 +50,23 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Custom Nexus colors
+        // Custom Nexus colors — Strategy §2
         nexus: {
-          blue: "#3B82F6",
-          purple: "#8B5CF6",
+          blue: "#0E7490",
+          yellow: "#E88C0A",
+          amber: "#F59E0B",
           cyan: "#06B6D4",
-          orange: "#F97316",
           green: "#10B981",
+          purple: "#8B5CF6",
+          orange: "#F97316",
           pink: "#EC4899",
+        },
+        // Severity colors for direct use
+        severity: {
+          critical: "#DC2626",
+          high: "#EA580C",
+          medium: "#D97706",
+          low: "#16A34A",
         },
         // Persona colors
         persona: {
@@ -107,8 +116,8 @@ const config: Config = {
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "nexus-gradient": "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #06B6D4 100%)",
-        "nexus-gradient-dark": "linear-gradient(135deg, #1e3a8a 0%, #4c1d95 50%, #164e63 100%)",
+        "nexus-gradient": "linear-gradient(135deg, #0E7490 0%, #E88C0A 100%)",
+        "nexus-gradient-dark": "linear-gradient(135deg, #0a5a6e 0%, #b86d08 100%)",
       },
     },
   },

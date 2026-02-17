@@ -1,4 +1,6 @@
 import PageHeader from "@/components/pm/PageHeader";
+import { EmptyState } from "@/components/pm/shared/EmptyState";
+import { ClipboardList } from "lucide-react";
 
 export default async function ProposalTasksPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -7,10 +9,14 @@ export default async function ProposalTasksPage({ params }: { params: Promise<{ 
       <PageHeader
         title="Task Tree"
         description={`Proposal ID: ${id}`}
+        backLabel="Back to Proposal"
+        backHref={`/pm/proposals/${id}`}
       />
-      <div className="rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center text-sm text-muted-foreground">
-        Task tree view will appear once tasks are generated in the backend.
-      </div>
+      <EmptyState
+        icon={ClipboardList}
+        title="No tasks yet"
+        description="Tasks will appear once they are generated from this proposal."
+      />
     </div>
   );
 }

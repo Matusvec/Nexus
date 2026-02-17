@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { JobStatusResponse } from "./types";
 
-// ── Active jobs tracker ──
+// ── Active jobs tracker (global — visible across PipelineIndicator, Dashboard, etc.) ──
 interface JobsState {
   activeJobs: Map<string, JobStatusResponse>;
   setJob: (id: string, job: JobStatusResponse) => void;
@@ -24,7 +24,11 @@ export const useJobsStore = create<JobsState>((set) => ({
     }),
 }));
 
-// ── Problem filters (client-side) ──
+// ── Problem / Evidence filters (synced with URL params) ──
+// Usage pattern:
+//   On page load, initialize from URL search params.
+//   On filter change, update both store and URL via router.push().
+//   This makes filter states bookmarkable and shareable.
 interface FilterState {
   severity: string;
   persona: string;
@@ -35,6 +39,7 @@ interface FilterState {
   setTag: (v: string) => void;
   setSearch: (v: string) => void;
   clearFilters: () => void;
+  initFromParams: (params: Record<string, string>) => void;
 }
 
 export const useFilterStore = create<FilterState>((set) => ({
@@ -47,5 +52,12 @@ export const useFilterStore = create<FilterState>((set) => ({
   setTag: (tag) => set({ tag }),
   setSearch: (search) => set({ search }),
   clearFilters: () => set({ severity: "", persona: "", tag: "", search: "" }),
+  initFromParams: (params) =>
+    set({
+      severity: params.severity ?? "",
+      persona: params.persona ?? "",
+      tag: params.tag ?? "",
+      search: params.search ?? "",
+    }),
 }));
 

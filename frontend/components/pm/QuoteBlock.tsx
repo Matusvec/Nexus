@@ -1,14 +1,13 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-
-type Severity = "critical" | "high" | "medium" | "low";
+import { SeverityBadge, type Severity } from "./shared/SeverityBadge";
 
 const severityClasses: Record<Severity, string> = {
-  critical: "border-red-500/30 bg-red-500/10 text-red-400",
-  high: "border-orange-500/30 bg-orange-500/10 text-orange-400",
-  medium: "border-amber-500/30 bg-amber-500/10 text-amber-400",
-  low: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+  critical: "border-red-200 bg-red-50",
+  high: "border-orange-200 bg-orange-50",
+  medium: "border-amber-200 bg-amber-50",
+  low: "border-green-200 bg-green-50",
 };
 
 interface QuoteBlockProps {
@@ -26,20 +25,24 @@ export default function QuoteBlock({
   severity,
   onClick,
 }: QuoteBlockProps) {
+  const Wrapper = onClick ? "button" : "div";
   return (
-    <button
-      type="button"
+    <Wrapper
+      type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "w-full rounded-2xl border px-4 py-3 text-left transition hover:shadow-sm",
-        severityClasses[severity]
+        "w-full rounded-2xl border px-4 py-3 text-left transition-shadow duration-200",
+        severityClasses[severity],
+        onClick && "cursor-pointer hover:shadow-sm"
       )}
     >
-      <p className="text-sm leading-relaxed">"{text}"</p>
-      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{source}</span>
-        {date && <span>{date}</span>}
+      <p className="text-sm leading-relaxed text-foreground">&ldquo;{text}&rdquo;</p>
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">
+          — {source}{date ? ` · ${date}` : ""}
+        </span>
+        <SeverityBadge severity={severity} />
       </div>
-    </button>
+    </Wrapper>
   );
 }

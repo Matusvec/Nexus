@@ -1,13 +1,6 @@
 // ============================================
-// PM PIPELINE API CLIENT
+// PM PIPELINE API CLIENT — Strategy §8
 // ============================================
-//
-// Usage from SERVER components : pmFetch("/evidence?page=1")
-// Usage from CLIENT components : pmFetch("/evidence?page=1")  (same!)
-//
-// On the server the Next.js rewrite doesn't exist, so we use
-// the absolute backend URL.  In the browser the rewrite proxies
-// /api/v1/* to the backend automatically.
 
 import type {
   Evidence,
@@ -18,14 +11,17 @@ import type {
   Cluster,
   ClusterDetail,
   Proposal,
+  ProposalDetail,
+  TaskTree,
   RoadmapResponse,
   JobResponse,
   JobStatusResponse,
   PaginatedResponse,
+  CostResponse,
 } from "./types";
 
 const BACKEND_ORIGIN =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+  process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 const PREFIX = "/api/v1";
 
 function baseUrl(): string {
@@ -172,12 +168,93 @@ export const createProposal = (data: {
     body: JSON.stringify(data),
   });
 
+export const getProposalDetail = (id: string) =>
+  pmFetch<ProposalDetail>(`/feature_proposals/${id}`);
+
+export const updateProposal = (id: string, data: Partial<Proposal>) =>
+  pmFetch<Proposal>(`/feature_proposals/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const approveProposal = (id: string) =>
+  pmFetch<Proposal>(`/feature_proposals/${id}/approve`, { method: "POST" });
+
+export const rejectProposal = (id: string) =>
+  pmFetch<Proposal>(`/feature_proposals/${id}/reject`, { method: "POST" });
+
+export const regenerateProposal = (id: string) =>
+  pmFetch<JobResponse>(`/feature_proposals/${id}/regenerate`, { method: "POST" });
+
 // ── Roadmap ──
 
 export const getRoadmap = () => pmFetch<RoadmapResponse>("/roadmap");
+
+export const updateWeight = (proposalId: string, weight: number) =>
+  pmFetch<void>(`/roadmap/${proposalId}/weight`, {
+    method: "PATCH",
+    body: JSON.stringify({ strategic_weight: weight }),
+  });
+
+// ── Tasks ──
+
+export const getTasks = (proposalId: string) =>
+  pmFetch<TaskTree>(`/feature_proposals/${proposalId}/tasks`);
+
+export const generateTasks = (proposalId: string) =>
+  pmFetch<JobResponse>("/jobs/generate_tasks", {
+    method: "POST",
+    body: JSON.stringify({ proposal_id: proposalId }),
+  });
+
+export const generateProposal = (clusterId: string) =>
+  pmFetch<JobResponse>("/jobs/generate_proposal", {
+    method: "POST",
+    body: JSON.stringify({ cluster_id: clusterId }),
+  });
 
 // ── Health ──
 
 export const healthCheck = () =>
   pmFetch<{ status: string }>("/health");
+
+// ── Query Keys (for TanStack Query cache management) ──
+
+export const pmKeys = {
+  evidence: {
+    all: ["pm", "evidence"] as const,
+    list: (filters?: Record<string, string>) => ["pm", "evidence", "list", filters] as const,
+    detail: (id: string) => ["pm", "evidence", id] as const,
+  },
+  problems: {
+    all: ["pm", "problems"] as const,
+    list: (filters?: Record<string, string>) => ["pm", "problems", "list", filters] as const,
+    detail: (id: string) => ["pm", "problems", id] as const,
+    similar: (text: string) => ["pm", "problems", "similar", text] as const,
+    stats: ["pm", "problems", "stats"] as const,
+  },
+  clusters: {
+    all: ["pm", "clusters"] as const,
+    list: () => ["pm", "clusters", "list"] as const,
+    detail: (id: string) => ["pm", "clusters", id] as const,
+  },
+  proposals: {
+    all: ["pm", "proposals"] as const,
+    list: (filters?: Record<string, string>) => ["pm", "proposals", "list", filters] as const,
+    detail: (id: string) => ["pm", "proposals", id] as const,
+  },
+  tasks: {
+    byProposal: (proposalId: string) => ["pm", "tasks", proposalId] as const,
+  },
+  roadmap: {
+    ranked: (filters?: Record<string, string>) => ["pm", "roadmap", filters] as const,
+  },
+  jobs: {
+    detail: (id: string) => ["pm", "jobs", id] as const,
+  },
+  costs: {
+    summary: ["pm", "costs", "summary"] as const,
+    calls: ["pm", "costs", "calls"] as const,
+  },
+};
 

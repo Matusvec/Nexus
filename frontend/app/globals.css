@@ -36,27 +36,42 @@
   }
 }
 
-/* PM pipeline theme overrides */
+/* PM pipeline theme overrides — Strategy Document §2 */
 .pm-root {
-  --background: 36 40% 96%;
-  --foreground: 215 22% 16%;
-  --card: 36 35% 98%;
-  --card-foreground: 215 22% 16%;
-  --popover: 36 35% 98%;
-  --popover-foreground: 215 22% 16%;
-  --primary: 190 66% 36%;
-  --primary-foreground: 36 40% 96%;
-  --secondary: 36 24% 90%;
-  --secondary-foreground: 215 22% 16%;
-  --muted: 36 18% 92%;
-  --muted-foreground: 215 15% 40%;
-  --accent: 24 88% 54%;
-  --accent-foreground: 36 40% 96%;
-  --destructive: 0 78% 52%;
-  --destructive-foreground: 36 40% 96%;
-  --border: 36 18% 85%;
-  --input: 36 18% 85%;
-  --ring: 190 66% 36%;
+  /* Surface palette: warm off-white layered system */
+  --background: 48 22% 97%;          /* surface-0  #FAFAF6 */
+  --foreground: 215 30% 15%;         /* ink-primary #1A2332 */
+  --card: 40 24% 95%;                /* surface-1  #F5F3EE */
+  --card-foreground: 215 30% 15%;
+  --popover: 40 24% 95%;
+  --popover-foreground: 215 30% 15%;
+  --primary: 190 82% 31%;            /* nexus-blue  #0E7490 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 24% 91%;           /* surface-2-ish */
+  --secondary-foreground: 215 30% 15%;
+  --muted: 38 22% 90%;               /* surface-2  #EBE8E0 */
+  --muted-foreground: 215 15% 40%;   /* ink-secondary */
+  --accent: 36 90% 47%;              /* nexus-yellow #E88C0A */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 38 18% 84%;              /* surface-3  #DDD9CE */
+  --input: 38 22% 90%;
+  --ring: 190 82% 31%;
+
+  /* Semantic severity colors */
+  --severity-critical: 0 72% 51%;     /* #DC2626 */
+  --severity-high: 20 88% 48%;        /* #EA580C */
+  --severity-medium: 32 95% 44%;      /* #D97706 */
+  --severity-low: 142 71% 37%;        /* #16A34A */
+
+  /* Semantic status colors */
+  --status-draft: 217 91% 60%;        /* #3B82F6 */
+  --status-approved: 142 71% 37%;     /* #16A34A */
+  --status-rejected: 220 9% 73%;      /* #9CA3AF */
+  --status-running: 36 90% 47%;       /* #E88C0A */
+  --status-error: 0 72% 51%;          /* #DC2626 */
+
   font-family: var(--font-sans);
   color: hsl(var(--foreground));
 }
@@ -75,8 +90,8 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 15% 10%, rgba(14, 116, 144, 0.12), transparent 40%),
-    radial-gradient(circle at 85% 0%, rgba(234, 88, 12, 0.12), transparent 45%),
+    radial-gradient(circle at 15% 10%, rgba(14, 116, 144, 0.08), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(232, 140, 10, 0.06), transparent 45%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
   pointer-events: none;
 }

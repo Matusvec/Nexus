@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Sans } from "next/font/google";
 import PMSidebar from "@/components/pm/layout/Sidebar";
 import PipelineIndicator from "@/components/pm/PipelineIndicator";
+import { PMQueryProvider } from "@/components/pm/PMQueryProvider";
+import { KeyboardShortcutsProvider } from "@/components/pm/KeyboardShortcutsProvider";
+import { Toaster } from "sonner";
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
   variable: "--font-sans",
 });
 
@@ -30,16 +34,26 @@ export default function PMLayout({
         <div className="pm-grid absolute inset-0 opacity-30" />
         <div className="relative flex min-h-screen">
           <PMSidebar />
-          <main className="flex-1 px-8 py-6">
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 pt-16 lg:pt-6">
             <div className="mb-6">
               <PipelineIndicator />
             </div>
-            <div className="rounded-3xl border border-border bg-card/80 p-6 shadow-sm">
+            <PMQueryProvider>
+              <KeyboardShortcutsProvider />
               {children}
-            </div>
+            </PMQueryProvider>
           </main>
         </div>
       </div>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          className: "pm-root",
+          style: {
+            fontFamily: "var(--font-sans)",
+          },
+        }}
+      />
     </div>
   );
 }

@@ -1,672 +1,1404 @@
-# Nexus Frontend Strategy
+# Nexus PM — Frontend Strategy & Implementation Blueprint
 
-> **"Cursor for Product Managers"** — A clean, evidence-driven interface that takes PMs from raw customer signal to prioritized roadmap + dev-ready task trees.
+> **Evidence to Roadmap. Signal to Strategy. Noise to Clarity.**
+>
+> A precision-engineered pipeline interface that transforms raw customer evidence into prioritized, dev-ready product decisions — with full provenance at every step.
 
 ---
 
 ## Table of Contents
 
-1. [Design Philosophy](#design-philosophy)
-2. [Tech Stack](#tech-stack)
-3. [Information Architecture](#information-architecture)
-4. [Core UI Flows](#core-ui-flows)
-5. [Component Architecture](#component-architecture)
-6. [State Management](#state-management)
-7. [API Integration Layer](#api-integration-layer)
-8. [Page-by-Page Specification](#page-by-page-specification)
-9. [Design System & Patterns](#design-system--patterns)
-10. [Development Phases](#development-phases)
+1. [Design Philosophy](#1-design-philosophy)
+2. [Brand & Visual Identity System](#2-brand--visual-identity-system)
+3. [Layout System & Design Architecture](#3-layout-system--design-architecture)
+4. [Page-Level Strategy](#4-page-level-strategy)
+5. [Component Architecture](#5-component-architecture)
+6. [Interaction & Animation System](#6-interaction--animation-system)
+7. [User Experience & Navigation Strategy](#7-user-experience--navigation-strategy)
+8. [State Management & Data Layer](#8-state-management--data-layer)
+9. [Technical Implementation Strategy](#9-technical-implementation-strategy)
+10. [Engagement Strategy](#10-engagement-strategy)
+11. [Quality Bar](#11-quality-bar)
+12. [Development Phases](#12-development-phases)
 
 ---
 
-## Design Philosophy
+## 1. Design Philosophy
 
-### Core Principles
+### Emotional Tone
 
-1. **Evidence is king** — Every screen traces back to quotes. No insight without a source.
-2. **Progressive disclosure** — Show summaries first, drill into detail on demand.
-3. **Pipeline visibility** — Users always know where they are in Evidence → Problems → Clusters → Proposals → Tasks → Roadmap.
-4. **Async-aware UX** — LLM jobs take time. Show progress, not spinners. Let users continue working.
-5. **Light editing, not authoring** — AI generates, humans approve/refine. Don't build a document editor.
-6. **Density over decoration** — PMs scan lots of data. Information density matters more than whitespace.
+Nexus PM should feel like a **trusted analyst** — confident enough to surface hard truths, intelligent enough to find the signal, fast enough to never block you, and polished enough that you trust every pixel.
 
-### What This Is NOT
+| Attribute | Expression |
+|---|---|
+| **Confident** | Bold typography hierarchy, decisive color usage, no wishy-washy "maybe" UI. Every element has a reason |
+| **Intelligent** | Data density without clutter. Severity distributions, priority scores, and citation links feel like an analyst's desk, not a reporting dashboard |
+| **Fast** | Instant navigation via client-side transitions. Skeleton states instead of blank screens. Optimistic updates on mutations. Perceived performance > actual performance |
+| **Premium** | Micro-shadows on cards, consistent 4px radius increments, system-level font rendering, precise spacing grid. The kind of fit-and-finish that makes PMs screenshot their own tool |
 
-- Not a document editor (no rich-text authoring)
-- Not a project management tool (no sprints, no kanban, no assignees)
-- Not a dashboard-heavy analytics product (minimal charts, max utility)
-- Not the RAPTOR/canvas/agent interface from the README (that's a separate UI surface)
+### UX Principles
 
-The PM pipeline UI is a **linear workflow tool** with six distinct views, each corresponding to one pipeline stage.
+1. **Clarity over clutter** — Show one clear hierarchy per screen. If a user can't identify the primary action within 2 seconds, the page needs a redesign.
+2. **Guided interaction** — Every page implies a next step. Evidence → "Extract Problems." Cluster → "Generate Proposal." Proposal → "Approve & Generate Tasks." The pipeline is the UX.
+3. **Minimal friction** — Upload should be < 3 clicks. Navigation should never exceed 2 levels deep. Filters persist across sessions. Back buttons always work.
+4. **Evidence is king** — Every data point traces back to a verbatim quote. Every quote traces to a source document. Citation links are first-class citizens, not footnotes.
+5. **Async-aware, never blocked** — LLM operations take 5–30 seconds. The UI shows progress bars with estimated completion, toast notifications on finish, and lets users navigate freely while jobs run.
+6. **Density over decoration** — PMs scan 50+ rows of data. Tables are the primary pattern. Cards are for overview screens. White space serves readability, not aesthetics.
 
----
+### How the Frontend Supports Product Value
 
-## Tech Stack
+The core value proposition is: **"From raw signal to ranked roadmap in minutes, not weeks."**
 
-| Layer | Technology | Rationale |
-|-------|-----------|-----------|
-| **Framework** | Next.js 14 (App Router) | Already in workspace; Server Components for data-heavy pages |
-| **Language** | TypeScript (strict) | Type safety for complex data models |
-| **Components** | shadcn/ui | Already installed; clean, accessible, customizable |
-| **Styling** | Tailwind CSS | Already configured; utility-first for fast iteration |
-| **State** | Zustand | Already in use (`store.ts`); lightweight, simple |
-| **Data Fetching** | TanStack Query (React Query) | Cache management, background refetching, optimistic updates |
-| **Tables** | TanStack Table | Sortable, filterable, paginated data tables for problems/clusters |
-| **Charts** | Recharts (minimal) | Severity distribution bars, score breakdowns only |
-| **Forms** | React Hook Form + Zod | Validation for evidence upload, proposal editing |
-| **Drag & Drop** | Native HTML5 / react-dropzone | File upload only (no complex DnD needed) |
-| **Toast/Notifications** | sonner | Job completion notifications, error alerts |
-| **Icons** | Lucide React | Already used with shadcn/ui |
-
-### What We're NOT Adding
-
-- No React Flow (that's for the canvas/RAPTOR workspace, separate from PM pipeline)
-- No Three.js / XR (that's AR mode, future)
-- No complex animation libraries
-- No markdown editors (light text editing only)
+The frontend makes this real by:
+- Making upload instant (paste text, drop file, click submit — done)
+- Showing extraction results within the evidence context (problems appear where they were found)
+- Visualizing clusters as pain magnitude (bigger cluster card = bigger pain = higher priority)
+- Rendering proposals as structured specs with clickable citations (every claim verified)
+- Presenting the roadmap as a transparent priority formula (users can adjust weights and understand why Feature A outranks Feature B)
 
 ---
 
-## Information Architecture
+## 2. Brand & Visual Identity System
 
-### Navigation Structure
+### Color Strategy
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Sidebar (persistent)                                        │
-│  ┌─────────────────┐                                        │
-│  │ 🏠 Dashboard     │  ← Pipeline overview + recent activity│
-│  │ 📄 Evidence      │  ← Upload & browse source material    │
-│  │ ⚠️ Problems      │  ← Extracted problem mentions         │
-│  │ 📊 Clusters      │  ← Grouped pain themes                │
-│  │ 💡 Proposals     │  ← Feature proposals                  │
-│  │ 🔨 Tasks         │  ← Implementation task trees          │
-│  │ 🗺️ Roadmap       │  ← Prioritized ranking                │
-│  │ ─────────────── │                                        │
-│  │ ⚙️ Settings      │  ← API keys, prompt versions          │
-│  │ 📈 Usage         │  ← Cost tracking, job history         │
-│  └─────────────────┘                                        │
-└─────────────────────────────────────────────────────────────┘
-```
+Nexus PM uses a **warm-neutral light theme** with strategic yellow and blue accents. Yellow represents **insight and energy** (the product's output). Blue represents **trust and depth** (the product's intelligence). They are used sparingly — as signals, not wallpaper.
 
-### Pipeline Flow (Visual Breadcrumb)
+#### Primary Palette
 
-Every page shows a horizontal pipeline indicator at the top:
+| Token | Hex | HSL | Usage |
+|---|---|---|---|
+| `--nexus-blue` | `#0E7490` | `190 82% 31%` | Primary CTAs, active sidebar items, links, pipeline "complete" indicators |
+| `--nexus-yellow` | `#E88C0A` | `36 90% 47%` | Accent highlights, "running" status, notification badges, score accents |
+| `--nexus-amber` | `#F59E0B` | `38 92% 50%` | Secondary accent, hover state lift on yellow elements |
 
-```
-Evidence ──→ Problems ──→ Clusters ──→ Proposals ──→ Tasks ──→ Roadmap
-   ✅           ✅          ⏳            ○            ○         ○
- 12 docs      47 items    running...    pending      pending   pending
-```
+#### Neutral Palette
 
-This gives users constant awareness of pipeline state and progress.
+| Token | Hex | HSL | Usage |
+|---|---|---|---|
+| `--surface-0` | `#FAFAF6` | `60 22% 97%` | Page background (warm off-white, avoids clinical white) |
+| `--surface-1` | `#F5F3EE` | `40 24% 95%` | Card backgrounds, sidebar bg |
+| `--surface-2` | `#EBE8E0` | `38 22% 90%` | Input backgrounds, muted section fills |
+| `--surface-3` | `#DDD9CE` | `38 18% 84%` | Borders, dividers |
+| `--ink-primary` | `#1A2332` | `215 30% 15%` | Headings, primary text |
+| `--ink-secondary` | `#4A5568` | `215 15% 35%` | Body text, descriptions |
+| `--ink-muted` | `#8A9AB5` | `215 20% 62%` | Captions, timestamps, placeholders |
 
-### URL Structure
+#### Semantic Colors
 
-```
-/pm                              → Dashboard (pipeline overview)
-/pm/evidence                     → Evidence list
-/pm/evidence/upload              → Upload new evidence
-/pm/evidence/[id]                → Evidence detail (text + chunks + extracted problems)
-/pm/problems                     → All problem mentions (filterable table)
-/pm/problems/[id]                → Problem detail (quote, source, similar problems)
-/pm/clusters                     → Cluster grid/list
-/pm/clusters/[id]                → Cluster detail (members, quotes, severity breakdown)
-/pm/proposals                    → Proposal list (with status filters)
-/pm/proposals/[id]               → Proposal detail (full spec, citations, edit mode)
-/pm/proposals/[id]/tasks         → Task tree for proposal
-/pm/roadmap                      → Ranked roadmap view
-/pm/settings                     → Configuration
-/pm/usage                        → Cost & job tracking
-```
+| Token | Hex | Usage |
+|---|---|---|
+| `--severity-critical` | `#DC2626` | Critical severity badges, destructive actions |
+| `--severity-high` | `#EA580C` | High severity |
+| `--severity-medium` | `#D97706` | Medium severity (warm amber, not yellow — avoids brand conflict) |
+| `--severity-low` | `#16A34A` | Low severity, success states |
+| `--status-draft` | `#3B82F6` | Draft proposals |
+| `--status-approved` | `#16A34A` | Approved proposals |
+| `--status-rejected` | `#9CA3AF` | Rejected proposals |
+| `--status-running` | `#E88C0A` | Active jobs, processing |
+| `--status-error` | `#DC2626` | Failed jobs, errors |
 
----
+#### Color Usage Rules
 
-## Core UI Flows
+1. **Yellow never as background fill** — Only as text accents, small badges, progress bar fills, and score highlights. Full yellow backgrounds look cheap.
+2. **Blue as the primary action color** — All primary buttons, links, and interactive elements use `--nexus-blue`. Hover state shifts to `#0C6577` (10% darker).
+3. **Neutral backgrounds create depth** — `surface-0` for the page, `surface-1` for cards, `surface-2` for nested containers. This 3-layer system creates visual hierarchy without borders.
+4. **Severity colors are status-only** — Never use severity reds/oranges for branding or decorative purposes. They are reserved exclusively for data meaning.
+5. **Gradients: subtle and purposeful** — The background gradient on the PM layout uses `radial-gradient` with `nexus-blue` at 8% opacity and `nexus-yellow` at 6% opacity. This creates warmth without distraction.
 
-### Flow 1: Upload Evidence
+#### CSS Variable Implementation (globals.css `.pm-root` override)
 
-```
-User Journey:
-1. Click "Upload Evidence" or drag file onto Evidence page
-2. Modal: paste text OR drop file (txt, pdf, csv)
-3. Fill metadata: title, source type, persona, segment, date
-4. Submit → toast: "Processing started" → redirect to evidence list
-5. Evidence row shows status: uploading → chunking → extracting → done
-6. Click evidence → see extracted problems inline
-
-States:
-- Empty state: "No evidence yet. Upload your first transcript."
-- Loading: skeleton rows
-- Processing: progress indicator per evidence item
-- Error: retry button + error message
-```
-
-**Upload Modal Wireframe:**
-```
-┌──────────────────────────────────────────────────────┐
-│  Upload Evidence                              [✕]    │
-│                                                      │
-│  ┌──────────────────────────────────────────────┐   │
-│  │                                              │   │
-│  │     Drop transcript file here                │   │
-│  │     or paste text below                      │   │
-│  │     (.txt, .pdf, .csv)                       │   │
-│  │                                              │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│  ┌──────────────────────────────────────────────┐   │
-│  │  [Paste transcript text here...]             │   │
-│  │                                              │   │
-│  │                                              │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│  Title:     [Customer Interview - Acme Corp     ]   │
-│  Type:      [Interview          ▼]                  │
-│  Persona:   [Product Manager    ]                   │
-│  Segment:   [Enterprise         ]                   │
-│  Date:      [2026-01-15         ]                   │
-│                                                      │
-│                          [Cancel]  [Upload & Process]│
-└──────────────────────────────────────────────────────┘
-```
-
----
-
-### Flow 2: Review Problems
-
-```
-User Journey:
-1. Navigate to Problems page
-2. See table of all extracted problem mentions
-3. Filter by: persona, severity, tags, source type, date range
-4. Each row shows: problem statement, severity badge, persona, tags, quote preview
-5. Click row → expand to show full quote + source reference
-6. Click "View Similar" → see embedding-based similar problems
-7. Bulk actions: re-extract, delete, tag
-
-States:
-- Empty: "No problems extracted yet. Upload evidence to get started."
-- Filtering: instant client-side filter + server pagination
-- Similarity panel: side drawer with similar problems ranked by distance
-```
-
-**Problems Table Wireframe:**
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│  Problems (47)                                                       │
-│                                                                      │
-│  [Persona ▼] [Severity ▼] [Tags ▼] [Source Type ▼] [Search...    ] │
-│                                                                      │
-│  ┌───┬──────────────────────────────┬──────────┬─────────┬────────┐ │
-│  │   │ Problem                      │ Severity │ Persona │ Tags   │ │
-│  ├───┼──────────────────────────────┼──────────┼─────────┼────────┤ │
-│  │ ▸ │ Permissions config too complex│ 🔴 HIGH  │ PM      │ perms  │ │
-│  │ ▸ │ Onboarding takes >2 hours    │ 🔴 HIGH  │ Admin   │ onbd   │ │
-│  │ ▸ │ Reports load too slowly      │ 🟡 MED   │ Analyst │ perf   │ │
-│  │ ▸ │ Can't export to CSV          │ 🟡 MED   │ PM      │ export │ │
-│  │ ▸ │ Mobile app crashes on login  │ 🔴 CRIT  │ User    │ mobile │ │
-│  └───┴──────────────────────────────┴──────────┴─────────┴────────┘ │
-│                                                                      │
-│  Expanded row:                                                       │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ "I spent 3 hours trying to set up my first project and      │   │
-│  │  still couldn't figure out permissions"                     │   │
-│  │                                                              │   │
-│  │  Source: Customer Interview - Acme Corp PM  |  Jan 15, 2026 │   │
-│  │  [View Similar] [View Source] [Edit Tags]                   │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  Page 1 of 3  [← Prev] [Next →]                                    │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Flow 3: Explore Clusters
-
-```
-User Journey:
-1. Navigate to Clusters page
-2. See card grid of pain clusters
-3. Each card: label, member count, severity distribution mini-bar, top quote
-4. Click card → detail page with all members, full quote list, severity chart
-5. From detail: "Generate Feature Proposal" button → triggers LLM job
-6. See job progress → proposal appears when done
-
-States:
-- Empty: "No clusters yet. Extract problems first, then cluster."
-- Unclustered: "23 unclustered problems. [Run Clustering]"
-- Processing: job progress bar during clustering
-- Results: card grid sorted by member count (biggest pains first)
-```
-
-**Cluster Card Wireframe:**
-```
-┌─────────────────────────────────────────┐
-│  Onboarding flow is confusing           │
-│                                         │
-│  23 mentions                            │
-│  ████████░░░░  Severity: 3.2 avg        │
-│  CRIT:4  HIGH:11  MED:7  LOW:1         │
-│                                         │
-│  "I spent 3 hours trying to set up      │
-│   my first project..."                  │
-│   — Acme Corp PM                        │
-│                                         │
-│  [View Details]  [Generate Proposal →]  │
-└─────────────────────────────────────────┘
-```
-
-**Cluster Detail Page Wireframe:**
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  ← Back to Clusters                                              │
-│                                                                  │
-│  Onboarding flow is confusing                                    │
-│  ──────────────────────────────────────────                      │
-│                                                                  │
-│  Summary: Multiple users across enterprise and mid-market        │
-│  segments report difficulty completing initial setup. Key         │
-│  friction points include permissions configuration and           │
-│  project creation workflows.                                     │
-│                                                                  │
-│  ┌──────────────────────────────┐  ┌─────────────────────────┐  │
-│  │  Severity Distribution       │  │  By Persona             │  │
-│  │  ████████████ Critical: 4    │  │  PM: 12                 │  │
-│  │  ██████████████████ High: 11 │  │  Admin: 7               │  │
-│  │  ████████████ Medium: 7      │  │  Developer: 3           │  │
-│  │  ██ Low: 1                   │  │  User: 1                │  │
-│  └──────────────────────────────┘  └─────────────────────────┘  │
-│                                                                  │
-│  Top Quotes                                                      │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ "our team gave up on onboarding after day two"          │   │
-│  │  — Support Ticket #4521  |  🔴 CRITICAL                 │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │ "I spent 3 hours trying to set up my first project"     │   │
-│  │  — Acme Corp PM Interview  |  🔴 HIGH                   │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │ "the permissions model is incomprehensible"             │   │
-│  │  — Sales Call Notes - BigCo  |  🔴 HIGH                 │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  All Members (23)                                                │
-│  [Sortable table of problem mentions...]                        │
-│                                                                  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  Proposal Status: ○ Not generated                        │  │
-│  │                                                           │  │
-│  │  [Generate Feature Proposal →]                           │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Flow 4: Review & Edit Proposals
-
-```
-User Journey:
-1. Navigate to Proposals page (or arrive from cluster detail)
-2. See list of proposals with status badges (draft, approved, rejected)
-3. Click proposal → full spec view
-4. Review: feature name, one-liner, user story, rationale WITH citations
-5. Citations are clickable → jump to source problem/quote
-6. Light edit: modify any text field inline
-7. Actions: Approve / Reject / Regenerate / Generate Tasks
-8. Status changes reflected in list + roadmap
-
-States:
-- Draft: editable, can regenerate
-- Approved: locked for editing, counts toward roadmap
-- Rejected: grayed out, excluded from roadmap
-- Generating: LLM job in progress
-```
-
-**Proposal Detail Wireframe:**
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│  ← Back to Proposals                                                 │
-│                                                                      │
-│  Guided Onboarding Wizard                          Status: DRAFT     │
-│  "Step-by-step setup flow replacing the current blank-slate          │
-│   experience"                                                        │
-│  ──────────────────────────────────────────────────────              │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  User Story                                                  │    │
-│  │  As a new admin, I want a guided setup wizard so that I can  │    │
-│  │  configure permissions and create my first project in under  │    │
-│  │  30 minutes.                                                 │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  Why This Matters                                            │    │
-│  │                                                               │    │
-│  │  23 customers across enterprise and mid-market segments      │    │
-│  │  report onboarding friction as their #1 pain point.          │    │
-│  │                                                               │    │
-│  │  Users are abandoning setup entirely: [1] "our team gave up  │    │
-│  │  on onboarding after day two" (Support Ticket #4521).        │    │
-│  │                                                               │    │
-│  │  The time investment is prohibitive: [2] "I spent 3 hours    │    │
-│  │  trying to set up my first project" (Acme Corp PM).          │    │
-│  │                                                               │    │
-│  │  [1][2] = clickable citation links → source evidence         │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  Success Metrics                                                     │
-│  ┌────────────────────────────┬──────────┬───────────────────────┐  │
-│  │ Metric                     │ Target   │ Reasoning              │  │
-│  ├────────────────────────────┼──────────┼───────────────────────┤  │
-│  │ Onboarding completion rate │ >80%     │ Currently ~40% est.   │  │
-│  │ Time to first project      │ <30 min  │ Currently 2-3 hours   │  │
-│  │ Support tickets (onboard)  │ -50%     │ 34% of tickets today  │  │
-│  └────────────────────────────┴──────────┴───────────────────────┘  │
-│                                                                      │
-│  Risks                                                               │
-│  ┌────────────────────────────┬──────────┬──────────────────────┐   │
-│  │ Risk                       │ Severity │ Mitigation            │   │
-│  ├────────────────────────────┼──────────┼──────────────────────┤   │
-│  │ Power users feel restricted│ Medium   │ "Skip wizard" option │   │
-│  │ Edge cases in permissions  │ High     │ Fallback to manual   │   │
-│  └────────────────────────────┴──────────┴──────────────────────┘   │
-│                                                                      │
-│  Scope: M (1-3 weeks)  |  Cluster: Onboarding flow is confusing    │
-│                                                                      │
-│  [✏️ Edit] [🔄 Regenerate] [✅ Approve] [❌ Reject] [🔨 Generate Tasks] │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Flow 5: View Task Tree
-
-```
-User Journey:
-1. From proposal detail, click "Generate Tasks"
-2. Job runs → task tree appears
-3. Nested tree view grouped by category: Backend / Frontend / Data / QA
-4. Each task shows: title, effort badge, acceptance criteria (expandable)
-5. Dependencies shown as subtle connector lines or badges
-6. Export button: copy as markdown, future: push to Linear/GitHub
-
-States:
-- Not generated: "Generate Tasks" button
-- Generating: progress indicator
-- Generated: collapsible tree view
-- Exportable: copy/download as markdown or JSON
-```
-
-**Task Tree Wireframe:**
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Implementation Plan: Guided Onboarding Wizard                   │
-│  Proposal: Guided Onboarding Wizard  |  Total: 18 tasks         │
-│  ──────────────────────────────────────────                      │
-│                                                                  │
-│  [Backend] [Frontend] [Data] [QA]  ← category tabs              │
-│                                                                  │
-│  Backend (6 tasks)                                               │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ ▾ Create onboarding state machine API                    │   │
-│  │   Effort: M (1-3 days)                                   │   │
-│  │   Depends on: Create onboarding_progress table           │   │
-│  │                                                           │   │
-│  │   Acceptance Criteria:                                    │   │
-│  │   ☐ Given a new user, when POST /onboarding/start,       │   │
-│  │     then create progress record with step=1              │   │
-│  │   ☐ Given step completion, when POST /onboarding/next,   │   │
-│  │     then advance to next step and persist state          │   │
-│  │   ☐ Given all steps complete, when GET /onboarding/status│   │
-│  │     then return {completed: true}                        │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │ ▸ Create permissions template endpoint          S        │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │ ▸ Add onboarding progress tracking             M        │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │ ▸ Create project scaffolding endpoint           M        │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  Data (2 tasks)                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ ▸ Create onboarding_progress table              S        │   │
-│  │ ▸ Add default permission templates seed data    S        │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  [📋 Copy as Markdown]  [📥 Download JSON]  [🔄 Regenerate]    │
-└──────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Flow 6: Roadmap View
-
-```
-User Journey:
-1. Navigate to Roadmap page
-2. See ranked list of approved proposals sorted by priority score
-3. Each row: rank, feature name, score, score breakdown (expandable)
-4. Click score breakdown → see frequency × severity × weight / effort
-5. Adjust strategic weight via inline slider → score recalculates
-6. Filter by persona, segment, tag
-7. Visual: simple ranked list (not a timeline/gantt chart)
-
-States:
-- Empty: "No approved proposals. Generate and approve proposals first."
-- Populated: ranked list with expandable score details
-- Adjustable: strategic weight slider triggers recalculation
-```
-
-**Roadmap Wireframe:**
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│  Roadmap                                                             │
-│  12 proposals  |  Last clustered: Feb 12, 2026                      │
-│                                                                      │
-│  [Persona ▼] [Segment ▼] [Tag ▼]                                   │
-│                                                                      │
-│  ┌────┬───────────────────────────┬───────┬───────────────────────┐  │
-│  │ #  │ Feature                    │ Score │ Breakdown             │  │
-│  ├────┼───────────────────────────┼───────┼───────────────────────┤  │
-│  │ 1  │ Guided Onboarding Wizard  │ 42.5  │ ▸ freq:34 sev:3.2    │  │
-│  │    │ M scope  |  ✅ approved    │       │   wt:1.2 eff:3       │  │
-│  ├────┼───────────────────────────┼───────┼───────────────────────┤  │
-│  │ 2  │ Real-time Report Engine   │ 38.1  │ ▸ freq:28 sev:2.8    │  │
-│  │    │ L scope  |  ✅ approved    │       │   wt:1.0 eff:8       │  │
-│  ├────┼───────────────────────────┼───────┼───────────────────────┤  │
-│  │ 3  │ Granular Permissions v2   │ 31.7  │ ▸ freq:19 sev:3.5    │  │
-│  │    │ L scope  |  ✅ approved    │       │   wt:1.0 eff:8       │  │
-│  ├────┼───────────────────────────┼───────┼───────────────────────┤  │
-│  │ 4  │ CSV/Excel Export          │ 28.3  │ ▸ freq:15 sev:2.1    │  │
-│  │    │ S scope  |  📝 draft      │       │   wt:1.0 eff:1       │  │
-│  └────┴───────────────────────────┴───────┴───────────────────────┘  │
-│                                                                      │
-│  Expanded Score Breakdown (#1):                                      │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  Formula: (frequency × severity × weight) / effort           │   │
-│  │                                                               │   │
-│  │  Frequency:  34.0  (23 of 68 total mentions)    ████████░░  │   │
-│  │  Severity:   3.2   (avg across cluster)         ████████░░  │   │
-│  │  Weight:     1.2   [━━━━━━━●━━━] adjustable     ████████░░  │   │
-│  │  Effort:     3     (M scope = 3 units)          ██████░░░░  │   │
-│  │  ─────────────────────────────────────────                   │   │
-│  │  Score:      42.5  = (34 × 3.2 × 1.2) / 3                  │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Component Architecture
-
-### Directory Structure (PM Pipeline)
-
-```
-frontend/
-├── app/
-│   ├── pm/                              # PM pipeline route group
-│   │   ├── layout.tsx                   # PM layout with sidebar + pipeline indicator
-│   │   ├── page.tsx                     # Dashboard / pipeline overview
-│   │   ├── evidence/
-│   │   │   ├── page.tsx                 # Evidence list
-│   │   │   ├── upload/
-│   │   │   │   └── page.tsx             # Upload page (or modal)
-│   │   │   └── [id]/
-│   │   │       └── page.tsx             # Evidence detail
-│   │   ├── problems/
-│   │   │   ├── page.tsx                 # Problem mentions table
-│   │   │   └── [id]/
-│   │   │       └── page.tsx             # Problem detail
-│   │   ├── clusters/
-│   │   │   ├── page.tsx                 # Cluster grid
-│   │   │   └── [id]/
-│   │   │       └── page.tsx             # Cluster detail
-│   │   ├── proposals/
-│   │   │   ├── page.tsx                 # Proposal list
-│   │   │   └── [id]/
-│   │   │       ├── page.tsx             # Proposal detail
-│   │   │       └── tasks/
-│   │   │           └── page.tsx         # Task tree for proposal
-│   │   ├── roadmap/
-│   │   │   └── page.tsx                 # Prioritized roadmap
-│   │   ├── settings/
-│   │   │   └── page.tsx                 # API keys, prompt versions
-│   │   └── usage/
-│   │       └── page.tsx                 # Cost tracking
-│   ├── globals.css
-│   ├── layout.tsx                       # Root layout
-│   └── page.tsx                         # Landing / workspace selector
-├── components/
-│   ├── pm/                              # PM pipeline components
-│   │   ├── pipeline/
-│   │   │   ├── PipelineIndicator.tsx    # Horizontal pipeline status bar
-│   │   │   └── PipelineStep.tsx         # Individual step with status
-│   │   ├── evidence/
-│   │   │   ├── EvidenceList.tsx         # Evidence table/list
-│   │   │   ├── EvidenceCard.tsx         # Evidence summary card
-│   │   │   ├── EvidenceDetail.tsx       # Full evidence view with chunks
-│   │   │   ├── UploadModal.tsx          # Upload form with drag-drop
-│   │   │   └── EvidenceFilters.tsx      # Filter controls
-│   │   ├── problems/
-│   │   │   ├── ProblemTable.tsx         # Filterable problem table
-│   │   │   ├── ProblemRow.tsx           # Expandable table row
-│   │   │   ├── ProblemDetail.tsx        # Full problem view
-│   │   │   ├── SimilarProblems.tsx      # Side panel with similar items
-│   │   │   ├── SeverityBadge.tsx        # Color-coded severity indicator
-│   │   │   └── ProblemFilters.tsx       # Filter controls
-│   │   ├── clusters/
-│   │   │   ├── ClusterGrid.tsx          # Card grid layout
-│   │   │   ├── ClusterCard.tsx          # Summary card with mini chart
-│   │   │   ├── ClusterDetail.tsx        # Detail page content
-│   │   │   ├── SeverityChart.tsx        # Horizontal bar chart
-│   │   │   └── QuoteList.tsx            # Formatted quote list with sources
-│   │   ├── proposals/
-│   │   │   ├── ProposalList.tsx         # List with status badges
-│   │   │   ├── ProposalDetail.tsx       # Full proposal spec
-│   │   │   ├── ProposalEditor.tsx       # Inline editable fields
-│   │   │   ├── CitationLink.tsx         # Clickable citation → source
-│   │   │   ├── MetricsTable.tsx         # Success metrics display
-│   │   │   ├── RisksTable.tsx           # Risks + mitigations
-│   │   │   └── ProposalActions.tsx      # Approve/Reject/Regenerate buttons
-│   │   ├── tasks/
-│   │   │   ├── TaskTree.tsx             # Collapsible hierarchical tree
-│   │   │   ├── TaskNode.tsx             # Individual task with details
-│   │   │   ├── TaskCategoryTabs.tsx     # Backend/Frontend/Data/QA tabs
-│   │   │   ├── AcceptanceCriteria.tsx   # Checklist-style criteria
-│   │   │   └── TaskExport.tsx           # Export buttons (markdown, JSON)
-│   │   ├── roadmap/
-│   │   │   ├── RoadmapTable.tsx         # Ranked list with scores
-│   │   │   ├── ScoreBreakdown.tsx       # Expandable score details
-│   │   │   ├── WeightSlider.tsx         # Strategic weight adjuster
-│   │   │   └── RoadmapFilters.tsx       # Filter controls
-│   │   ├── shared/
-│   │   │   ├── JobProgress.tsx          # Async job progress indicator
-│   │   │   ├── EmptyState.tsx           # Consistent empty states
-│   │   │   ├── QuoteBlock.tsx           # Styled quote with source attribution
-│   │   │   ├── StatusBadge.tsx          # Generic status badge
-│   │   │   ├── DataTable.tsx            # Reusable TanStack Table wrapper
-│   │   │   └── PageHeader.tsx           # Consistent page header
-│   │   └── layout/
-│   │       ├── PMSidebar.tsx            # PM pipeline sidebar navigation
-│   │       └── PMLayout.tsx             # PM-specific layout wrapper
-│   ├── canvas/                          # Existing canvas components (RAPTOR workspace)
-│   ├── chat/                            # Existing chat components
-│   ├── documents/                       # Existing document components
-│   ├── layout/                          # Existing layout components
-│   └── ui/                              # shadcn/ui primitives (shared)
-├── lib/
-│   ├── pm/                              # PM-specific lib code
-│   │   ├── api.ts                       # PM API client functions
-│   │   ├── store.ts                     # PM Zustand store
-│   │   ├── types.ts                     # PM TypeScript types
-│   │   ├── hooks.ts                     # PM-specific React hooks
-│   │   └── constants.ts                 # PM constants (severity, tags, etc.)
-│   ├── api.ts                           # Existing shared API client
-│   ├── store.ts                         # Existing shared store
-│   ├── types.ts                         # Existing shared types
-│   └── utils.ts                         # Existing shared utilities
-```
-
----
-
-## State Management
-
-### Zustand Store (PM Pipeline)
-
-```typescript
-// lib/pm/store.ts
-
-interface PMStore {
-  // Pipeline status
-  pipeline: {
-    evidenceCount: number;
-    problemCount: number;
-    clusterCount: number;
-    proposalCount: number;
-    taskCount: number;
-    lastClusteredAt: string | null;
-  };
-
-  // Active jobs
-  activeJobs: Job[];
-  addJob: (job: Job) => void;
-  updateJob: (id: string, update: Partial<Job>) => void;
-  removeJob: (id: string) => void;
-
-  // Filters (client-side, persisted)
-  problemFilters: {
-    persona: string | null;
-    severity: Severity | null;
-    tags: string[];
-    sourceType: string | null;
-    search: string;
-  };
-  setFilter: (key: string, value: any) => void;
-  clearFilters: () => void;
-
-  // UI state
-  selectedProposalId: string | null;
-  expandedTaskIds: string[];
-  toggleTaskExpanded: (id: string) => void;
+```css
+.pm-root {
+  --background: 48 22% 97%;          /* surface-0 */
+  --foreground: 215 30% 15%;         /* ink-primary */
+  --card: 40 24% 95%;                /* surface-1 */
+  --card-foreground: 215 30% 15%;
+  --popover: 40 24% 95%;
+  --popover-foreground: 215 30% 15%;
+  --primary: 190 82% 31%;            /* nexus-blue */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 24% 91%;           /* surface-2-ish */
+  --secondary-foreground: 215 30% 15%;
+  --muted: 38 18% 90%;               /* surface-2 */
+  --muted-foreground: 215 15% 40%;   /* ink-secondary */
+  --accent: 36 90% 47%;              /* nexus-yellow */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 38 18% 84%;              /* surface-3 */
+  --input: 38 22% 90%;
+  --ring: 190 82% 31%;
 }
 ```
 
-### TanStack Query Keys
+### Typography
+
+#### Font Pairing
+
+| Role | Font | Weight | Why |
+|---|---|---|---|
+| **Display** (h1, h2) | `Fraunces` (variable, optical size) | 600–700 | High-personality serif. Signals editorial authority — appropriate for a tool that synthesizes documents. Google Fonts variable, already loaded. |
+| **Body / UI** | `IBM Plex Sans` | 400, 500, 600 | Engineered for data-dense interfaces. Excellent legibility at 13–14px. Variable width numbers for tables. Already loaded. |
+| **Code / Monospace** | `IBM Plex Mono` | 400 | Technical contexts (API keys, job IDs, JSON export). Same family as body for cohesion. |
+
+#### Type Scale (based on 16px root)
+
+| Level | Font | Size | Weight | Line Height | Letter Spacing | Usage |
+|---|---|---|---|---|---|---|
+| **Page Title** | Fraunces | 30px / `1.875rem` | 600 | 1.2 | −0.02em | One per page: "Evidence", "Roadmap", etc. |
+| **Section Head** | Fraunces | 22px / `1.375rem` | 600 | 1.3 | −0.015em | Card group titles, detail page sections |
+| **Card Title** | IBM Plex Sans | 16px / `1rem` | 600 | 1.4 | −0.01em | Evidence title in table, cluster card label |
+| **Body** | IBM Plex Sans | 14px / `0.875rem` | 400 | 1.6 | 0 | Descriptions, rationale text, summaries |
+| **Body Strong** | IBM Plex Sans | 14px / `0.875rem` | 500 | 1.6 | 0 | Severity labels, score values, inline emphasis |
+| **Caption** | IBM Plex Sans | 12px / `0.75rem` | 400 | 1.5 | 0 | Timestamps, source attribution, meta info |
+| **Overline** | IBM Plex Sans | 11px / `0.6875rem` | 500 | 1.0 | 0.15em | "PM PIPELINE", "EVIDENCE", section labels (uppercase tracking) |
+| **Badge** | IBM Plex Sans | 11px / `0.6875rem` | 600 | 1.0 | 0.02em | Severity badges, status pills, effort tags |
+
+#### Spacing Rhythm
+
+All vertical spacing between type elements follows a **4px base grid**:
+- Overline to Title: 8px (`mt-2`)
+- Title to Description: 8px (`mt-2`)
+- Section to Section: 32px (`mt-8`)
+- Card internal padding: 20px (`p-5`)
+- Table row height: 48px
+- Form field spacing: 16px (`space-y-4`)
+
+### Iconography
+
+| Aspect | Decision |
+|---|---|
+| **Library** | Lucide React (already installed, tree-shakeable, 1500+ icons) |
+| **Style** | Outline only, `strokeWidth={1.75}` (slightly lighter than default 2 for elegance). Never filled. |
+| **Size** | 16px for inline/nav, 20px for page headers, 24px for empty states |
+| **Color** | Icons inherit text color. Never colored independently unless they represent status (severity dot, job status dot) |
+| **Custom icons** | None. Lucide covers all pipeline concepts. Use `FileText` for evidence, `AlertTriangle` for problems, `Layers` for clusters, `Sparkles` for proposals, `ListChecks` for tasks, `Map` for roadmap. |
+
+### Illustration Strategy
+
+- **No illustrations.** This is a data tool. Empty states use the pipeline icon + 2-line text message + primary CTA button. Never clipart, never abstract blobs.
+- **Data is the visual.** Severity distribution bars, pipeline status dots, and score breakdowns ARE the visual language.
+
+---
+
+## 3. Layout System & Design Architecture
+
+### Grid System
+
+| Property | Value |
+|---|---|
+| **Container max-width** | `1400px` (2xl breakpoint, already configured in Tailwind) |
+| **Grid columns** | 12-column CSS Grid via Tailwind `grid-cols-12` |
+| **Gutter** | 24px (`gap-6`) |
+| **Page horizontal padding** | 32px (`px-8`) |
+| **Sidebar width** | 256px fixed (`w-64`) |
+| **Content area** | `calc(100vw - 256px)` or flex-1 |
+
+### Spacing Scale (Tailwind native, referenced explicitly)
+
+```
+4px   = space-1    → Icon-to-text gap
+8px   = space-2    → Tight grouping (badge padding, overline-to-title)
+12px  = space-3    → Card internal element spacing
+16px  = space-4    → Form field spacing, list item gap
+20px  = space-5    → Card padding
+24px  = space-6    → Section gap, grid gutter
+32px  = space-8    → Major section break
+48px  = space-12   → Page-level vertical rhythm
+```
+
+### Breakpoints
+
+| Name | Min Width | Layout Behavior |
+|---|---|---|
+| **Desktop XL** | 1400px | Full layout, 3-column cluster grid |
+| **Desktop** | 1024px | Full sidebar + content. 2-column cluster grid |
+| **Tablet** | 768px | Sidebar collapses to icon-only (56px). Content fills. 2-column grid |
+| **Mobile** | < 768px | Sidebar hidden (hamburger toggle). Single column. Tables become stacked cards. **Not a priority** — PMs work on desktop |
+
+### Card Pattern
+
+Cards are the atomic container for grouped information. All cards follow this structure:
+
+```
+┌─ Card ─────────────────────────────────────────────────┐
+│  rounded-2xl                                            │
+│  border border-border                                   │
+│  bg-card (surface-1)                                    │
+│  p-5                                                    │
+│  shadow-none (default) → shadow-sm (hover, if actionable)│
+│  transition-shadow duration-200                         │
+│                                                         │
+│  [Overline]           ← 11px, uppercase, tracking-wide  │
+│  [Title]              ← 16px, font-semibold             │
+│  [Description/Body]   ← 14px, text-muted-foreground     │
+│  [Metadata row]       ← 12px, flex justify-between      │
+│  [Action area]        ← buttons aligned right or full-w  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Rules:**
+- Cards are NEVER nested inside cards
+- Interactive cards (cluster grid, evidence rows) gain `shadow-sm` on hover + `cursor-pointer`
+- Static cards (stat cards, detail sections) have no hover effect
+- Card border radius: `16px` (`rounded-2xl`)
+- Card background: `bg-card` (one shade lighter than page background)
+
+### Page Structure Template
+
+Every page in the PM pipeline follows this structure:
+
+```
+┌─ Page ──────────────────────────────────────────────────────────┐
+│                                                                  │
+│  ┌─ PageHeader ──────────────────────────────────────────────┐  │
+│  │  [Overline: "PM PIPELINE"]                                 │  │
+│  │  [Page Title: "Evidence"]            [Action Button(s)]   │  │
+│  │  [Description: 1-line page purpose]                       │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌─ Stats Bar (optional) ────────────────────────────────────┐  │
+│  │  Severity distribution badges  |  Total count  |  Filter  │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌─ Filter Bar (optional) ───────────────────────────────────┐  │
+│  │  [Persona ▼] [Severity ▼] [Tags ▼] [Search_________]     │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌─ Primary Content ─────────────────────────────────────────┐  │
+│  │  Table  OR  Card Grid  OR  Detail View                     │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌─ Pagination (if table) ───────────────────────────────────┐  │
+│  │  Page 1 of 3  [← Prev] [Next →]    Showing 1-20 of 47    │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Page-Level Strategy
+
+### 4.1 Dashboard (`/pm`)
+
+**Primary user goal:** Understand pipeline status at a glance and know what to do next.
+
+**Layout:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Dashboard" + "Pipeline overview and next steps"   │
+├───────────┬───────────┬───────────┬───────────┬────────────────┤
+│  Evidence │ Problems  │ Clusters  │ Proposals │  Roadmap       │
+│  12 docs  │ 47 items  │ 8 groups  │ 5 specs   │  5 ranked      │
+│  ✅ done  │ ✅ done   │ ✅ done   │ 3 draft   │  3 approved    │
+├───────────┴───────────┴───────────┴───────────┴────────────────┤
+│                                                                 │
+│  Next Best Actions                                              │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ 🟡 2 proposals awaiting review → [Review Proposals →]  │   │
+│  │ 🟡 3 approved proposals need tasks → [Generate Tasks →]│   │
+│  │ 🔵 Upload more evidence → [Upload Evidence →]          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  Recent Jobs                                Active Jobs         │
+│  ┌────────────────────────────┐  ┌──────────────────────────┐  │
+│  │ Extract problems  ✅ 12s  │  │ Clustering  ████░░ 60%   │  │
+│  │ Embed problems    ✅ 8s   │  │ ETA: ~15s remaining      │  │
+│  │ Upload evidence   ✅ 2s   │  └──────────────────────────┘  │
+│  └────────────────────────────┘                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key components:**
+- `StatCard` × 5 — one per pipeline stage. Shows count + sub-status. Clickable → navigates to page.
+- `NextActionsPanel` — Computed from pipeline state. If problems exist but no clusters, show "Run Clustering." If clusters exist but no proposals, show "Generate Proposals." Always one dominant action.
+- `RecentJobsList` — Last 10 jobs with type, status badge, duration. Fetched from `/llm/calls`.
+- `ActiveJobsPanel` — Active jobs with polling progress bar. Uses `useJobsStore`.
+
+**Data requirements:**
+```
+GET /api/v1/evidence?page=1&per_page=1       → total count
+GET /api/v1/problems/stats                     → total + severity breakdown
+GET /api/v1/clusters?page=1&per_page=1        → total count
+GET /api/v1/roadmap                            → proposal count, statuses
+GET /api/v1/llm/calls                          → recent job history
+```
+
+**States:**
+| State | Behavior |
+|---|---|
+| **Empty** (first visit) | Single large CTA card: "Start by uploading your first piece of evidence." Upload button centered. |
+| **Loading** | 5 skeleton stat cards (shimmer animation). Jobs list shows 3 skeleton rows. |
+| **Error** | Inline error banner per failed fetch. Individual stat cards show "—" with retry link. |
+| **Populated** | Full layout as described. |
+
+---
+
+### 4.2 Evidence List (`/pm/evidence`)
+
+**Primary user goal:** Browse uploaded evidence and track extraction status.
+
+**Layout:**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Evidence" + "Upload and manage source material"    │
+│                                            [+ Upload Evidence]   │
+├──────────────────────────────────────────────────────────────────┤
+│  [Filter: Source type ▼] [Filter: Persona ▼] [Search _______]   │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌───────────────────────────────┬──────┬────────┬─────┬──────┐ │
+│  │ Title                         │ Type │Persona │Chunks│Status│ │
+│  ├───────────────────────────────┼──────┼────────┼─────┼──────┤ │
+│  │ Customer Interview - Acme     │ 🎙️  │ PM     │ 12  │ ✅   │ │
+│  │ Support Ticket Batch Q4       │ 🎫  │ Admin  │ 34  │ ✅   │ │
+│  │ Sales Call Notes - BigCo      │ 📞  │ PM     │ 8   │ ⏳   │ │
+│  └───────────────────────────────┴──────┴────────┴─────┴──────┘ │
+│  Showing 1-20 of 34          [← Prev] [1] [2] [Next →]          │
+├──────────────────────────────────────────────────────────────────┤
+│  Empty state: "No evidence uploaded yet. Start by uploading a    │
+│  customer interview, support ticket, or sales note."             │
+│  [Upload Evidence →]                                             │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- Click row → navigate to `/pm/evidence/[id]`
+- "Upload Evidence" button → navigate to `/pm/evidence/upload`
+- Source type filter: dropdown with `interview`, `support_ticket`, `sales_note`, `survey`, `other`
+- Processing status column shows: ✅ extracted, ⏳ extracting (pulse animation), ❌ failed (with retry)
+- Sortable columns: Title (alpha), Type, Created (date), Chunks (numeric)
+
+**Data requirements:**
+```
+GET /api/v1/evidence?page={n}&per_page=20&source_type={filter}&persona={filter}
+```
+
+**Component:** `EvidenceTable` using TanStack Table with column definitions, sorting state, and pagination.
+
+---
+
+### 4.3 Evidence Upload (`/pm/evidence/upload`)
+
+**Primary user goal:** Get evidence into the system in under 30 seconds.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Upload Evidence"                   [← Back]        │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌─ Dropzone ────────────────────────────────────────────────┐  │
+│  │                                                            │  │
+│  │   📄  Drop a file here, or click to browse                │  │
+│  │       Accepts: .txt, .pdf, .csv, .md, .docx               │  │
+│  │                                                            │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ── OR paste text directly ──                                    │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ [Multi-line text area, 8 rows, monospace hint]             │  │
+│  │                                                            │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  Title *        [Customer Interview - Acme Corp              ]   │
+│  Source Type *  [Interview ▼]                                    │
+│  Persona        [Product Manager                             ]   │
+│  Segment        [Enterprise                                  ]   │
+│  Date           [2026-01-15                                  ]   │
+│                                                                  │
+│                              [Cancel]  [Upload & Extract →]      │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- Drag-and-drop zone via `react-dropzone`. Highlights with blue dashed border on drag enter.
+- File upload reads content client-side (text files) or sends as multipart (PDF/DOCX — future backend support).
+- Form validation via `react-hook-form` + `zod`: title required, source_type required, raw_text required (from file or paste).
+- On submit: calls `createEvidence()` → calls `extractProblems()` → shows toast "Processing started" → redirects to evidence list.
+- If extraction is still running when user navigates away, `useJobsStore` tracks it. PipelineIndicator and RecentJobs show status.
+
+**States:**
+| State | Behavior |
+|---|---|
+| **Default** | Empty form, dropzone ready |
+| **File dropped** | File name shown below dropzone, text area auto-populated (if text file) |
+| **Submitting** | Button shows spinner + "Uploading…" → "Extracting…" (two-phase) |
+| **Success** | Toast: "Evidence uploaded. Problem extraction started." Redirect. |
+| **Error** | Inline error below form. Button re-enabled. |
+
+---
+
+### 4.4 Evidence Detail (`/pm/evidence/[id]`)
+
+**Primary user goal:** See the raw evidence text, its chunks, and problems extracted from it.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Evidence                                              │
+│  PageHeader: "{Evidence Title}"                                  │
+│  Meta: Interview · PM · Enterprise · Jan 15, 2026 · 12 chunks   │
+├──────────────────────────────────────────────────────────────────┤
+│  [Tab: Raw Text] [Tab: Extracted Problems] [Tab: Processing]     │
+│                                                                  │
+│  ── Tab 1: Raw Text ──                                           │
+│  Full text content with chunk boundaries highlighted as          │
+│  alternating subtle background bands (surface-1 / surface-2).   │
+│  Each chunk shows its index as a small left-margin badge.        │
+│                                                                  │
+│  ── Tab 2: Extracted Problems ──                                 │
+│  Table of problems extracted from THIS evidence only.            │
+│  Columns: Problem Statement, Severity, Quote Preview, Tags      │
+│  Click row → navigate to /pm/problems/[id]                       │
+│                                                                  │
+│  ── Tab 3: Processing History ──                                 │
+│  List of jobs run against this evidence:                         │
+│  Job type, status, started_at, duration, token cost              │
+│  [Re-extract Problems] button                                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Data requirements:**
+```
+GET /api/v1/evidence/{id}                      → full detail with chunks
+GET /api/v1/problems?evidence_id={id}          → problems from this evidence
+```
+
+---
+
+### 4.5 Problems Table (`/pm/problems`)
+
+**Primary user goal:** Find, filter, and explore all extracted problem mentions across all evidence.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Problems" + "All extracted problem mentions"           │
+│  47 total  |  🔴 5 Critical  🟠 18 High  🟡 16 Medium  🟢 8 Low    │
+├──────────────────────────────────────────────────────────────────────┤
+│  [Persona ▼] [Severity ▼] [Tags ▼] [Source ▼] [Search___________]  │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌───┬──────────────────────────────┬─────────┬────────┬──────────┐ │
+│  │   │ Problem                      │Severity │Persona │ Tags     │ │
+│  ├───┼──────────────────────────────┼─────────┼────────┼──────────┤ │
+│  │ ▸ │ Permissions config too complex│ 🔴 CRIT │ PM     │ perms    │ │
+│  │ ▾ │ Onboarding takes >2 hours    │ 🔴 HIGH │ Admin  │ onboard  │ │
+│  │   ├──────────────────────────────────────────────────────────────│ │
+│  │   │ Expanded: Full quote + source evidence link + [View Similar]│ │
+│  │   ├──────────────────────────────────────────────────────────────│ │
+│  │ ▸ │ Reports load too slowly      │ 🟡 MED  │ Analyst│ perf     │ │
+│  └───┴──────────────────────────────┴─────────┴────────┴──────────┘ │
+│  Page 1 of 3  [← Prev] [Next →]                                     │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- **Filter bar:** Four dropdown filters + free text search. These update URL query params and refetch server-side data. Filter state persisted in `useFilterStore` (Zustand) and synced with URL.
+- **Expandable rows:** Click row chevron to expand. Shows full `quote_text` in a `QuoteBlock` component, plus source evidence title (linked to `/pm/evidence/[id]`), plus "View Similar" button.
+- **"View Similar" button:** Opens a slide-over panel from the right (Sheet component). Panel fetches `/problems/similar?text={problem_statement}` and shows ranked list with similarity scores (0-1, displayed as percentage). Each result is clickable.
+- **Click problem statement link:** Navigates to `/pm/problems/[id]`.
+- **Severity stats bar:** Shows total count + distribution badges at the top. Data from `/problems/stats`. Badges are clickable (act as quick severity filter).
+- **Pagination:** Server-side via `page` and `per_page` params.
+
+**Component:** `ProblemsDataTable` using TanStack Table with:
+- Column definitions: `problem_statement`, `severity`, `persona`, `tags`, `created_at`
+- Expandable row rendering
+- Sort state (client-side within page, server-side across pages)
+- `SeverityBadge` sub-component with color mapping
+
+**Data requirements:**
+```
+GET /api/v1/problems?page=1&per_page=20&severity={}&persona={}&search={}
+GET /api/v1/problems/stats
+GET /api/v1/problems/similar?text={}&limit=10  (on "View Similar" click)
+```
+
+**States:**
+| State | Behavior |
+|---|---|
+| **Empty** | "No problems extracted yet. Upload evidence to get started." + [Upload Evidence →] |
+| **Loading** | Table skeleton: 8 shimmer rows with correct column widths |
+| **Filtered empty** | "No problems match your filters." + [Clear Filters] |
+| **Error** | Inline error banner with retry |
+
+---
+
+### 4.6 Problem Detail (`/pm/problems/[id]`)
+
+**Primary user goal:** Deep dive into a single problem — full quote, source, and similar problems.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Problems                                              │
+│  PageHeader: Problem statement text                              │
+│  [Severity Badge]  ·  Persona  ·  Tags                          │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌─ QuoteBlock ──────────────────────────────────────────────┐  │
+│  │  "Full verbatim quote from customer..."                    │  │
+│  │  — Source: Customer Interview - Acme Corp  ·  Jan 2026     │  │
+│  │  [View Source Evidence →]                                  │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  Similar Problems (8 found)                                      │
+│  ┌──────────────────────────────────────────────────┬──────┐    │
+│  │ Problem Statement                                │ Score│    │
+│  ├──────────────────────────────────────────────────┼──────┤    │
+│  │ Onboarding wizard doesn't save progress          │ 94%  │    │
+│  │ New users confused by permissions setup           │ 87%  │    │
+│  │ First project creation requires IT help           │ 81%  │    │
+│  └──────────────────────────────────────────────────┴──────┘    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 4.7 Clusters Grid (`/pm/clusters`)
+
+**Primary user goal:** See grouped pain themes, sorted by magnitude, and trigger proposal generation.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Clusters" + "Grouped pain themes from evidence"    │
+│                          [Run Clustering] (if unclustered exist)  │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌─ ClusterCard ────────────┐  ┌─ ClusterCard ────────────┐     │
+│  │ Onboarding confusion     │  │ Report performance       │     │
+│  │ 23 mentions              │  │ 15 mentions              │     │
+│  │ ████████░░ Sev: 3.2 avg  │  │ █████░░░░░ Sev: 2.4 avg │     │
+│  │                          │  │                          │     │
+│  │ "our team gave up on     │  │ "reports take 45 seconds │     │
+│  │  onboarding after day 2" │  │  to load every time"     │     │
+│  │  — Support #4521         │  │  — Analyst Interview     │     │
+│  │                          │  │                          │     │
+│  │ [View Details]           │  │ [View Details]           │     │
+│  └──────────────────────────┘  └──────────────────────────┘     │
+│                                                                  │
+│  ┌─ ClusterCard ────────────┐  ┌─ ClusterCard ────────────┐     │
+│  │ ...                      │  │ ...                      │     │
+│  └──────────────────────────┘  └──────────────────────────┘     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Cluster card anatomy:**
+```tsx
+<ClusterCard>
+  <CardTitle>{cluster.label}</CardTitle>
+  <MentionCount>{cluster.mention_count} mentions</MentionCount>
+  <SeverityBar distribution={cluster.severity_distribution} />
+  <TopQuote text={...} source={...} />
+  <CardActions>
+    <Link href={`/pm/clusters/${cluster.id}`}>View Details</Link>
+  </CardActions>
+</ClusterCard>
+```
+
+**Key interactions:**
+- Cards sorted by `mention_count` descending (biggest problem = first card)
+- "Run Clustering" button appears when there are problems without clusters. Triggers `POST /clusters/run`, shows job progress via toast + polling.
+- Grid: 3 columns on desktop XL, 2 on desktop, 1 on tablet/mobile
+- Hovering a card → subtle `shadow-sm` lift
+
+**Data requirements:**
+```
+GET /api/v1/clusters?page=1&per_page=30
+POST /api/v1/clusters/run?threshold=0.75    (on "Run Clustering" click)
+```
+
+**States:**
+| State | Behavior |
+|---|---|
+| **Empty (no problems)** | "No clusters yet. Extract problems first, then cluster." + [View Problems →] |
+| **Unclustered** | Banner: "23 unclustered problems." + [Run Clustering] button |
+| **Clustering** | Job progress inline: "Clustering in progress…" + progress bar |
+| **Populated** | Card grid sorted by mention count |
+
+---
+
+### 4.8 Cluster Detail (`/pm/clusters/[id]`)
+
+**Primary user goal:** Understand a pain cluster deeply — see all quotes, severity distribution, and generate a feature proposal.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Clusters                                              │
+│  PageHeader: "{Cluster Label}"                                   │
+│  23 mentions · Avg severity: 3.2                                 │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌─ Summary Card ────────────────────────────────────────────┐  │
+│  │  Multiple users across enterprise and mid-market segments  │  │
+│  │  report difficulty completing initial setup. Key friction   │  │
+│  │  points: permissions config, project creation workflows.   │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌─ Severity Distribution ──────┐  ┌─ By Persona ───────────┐  │
+│  │  Critical ████████     4     │  │  PM: 12                 │  │
+│  │  High     ██████████████ 11  │  │  Admin: 7               │  │
+│  │  Medium   ████████████  7    │  │  Developer: 3           │  │
+│  │  Low      ██           1     │  │  User: 1                │  │
+│  └──────────────────────────────┘  └──────────────────────────┘  │
+│                                                                  │
+│  Top Quotes                                                      │
+│  ┌─ QuoteBlock ──────────────────────────────────────────────┐  │
+│  │  "our team gave up on onboarding after day two"            │  │
+│  │  — Support Ticket #4521  ·  🔴 Critical                   │  │
+│  ├────────────────────────────────────────────────────────────┤  │
+│  │  "I spent 3 hours trying to set up my first project"      │  │
+│  │  — Acme Corp PM Interview  ·  🟠 High                     │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  All Members (23)                                                │
+│  [Full problems table with severity, persona, quote preview]     │
+│                                                                  │
+│  ┌─ Proposal Section ───────────────────────────────────────┐   │
+│  │  Status: Not generated                                    │   │
+│  │  [Generate Feature Proposal →]                            │   │
+│  └───────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  OR (if proposal exists):                                        │
+│  ┌─ Linked Proposal ────────────────────────────────────────┐   │
+│  │  "Guided Onboarding Wizard"  ·  Status: Draft            │   │
+│  │  [View Proposal →]                                        │   │
+│  └───────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- Severity distribution rendered as horizontal bar chart (`SeverityChart` component using Recharts `BarChart`, horizontal layout, severity colors)
+- Persona breakdown as simple list with counts
+- Top quotes: 3–5 highest severity quotes rendered as `QuoteBlock` components with `onClick` → navigate to problem detail
+- "Generate Feature Proposal" triggers `POST /api/v1/jobs/generate_proposal` → polls job → on completion, invalidates cluster detail query and shows linked proposal
+- Members table: same `ProblemsDataTable` component, filtered to this cluster's members
+
+**Data requirements:**
+```
+GET /api/v1/clusters/{id}    → detail with members, proposals, severity stats
+POST /api/v1/jobs/generate_proposal  { cluster_id }   (on button click)
+```
+
+---
+
+### 4.9 Proposals List (`/pm/proposals`)
+
+**Primary user goal:** Browse all generated feature proposals, filter by status, and take action.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Proposals" + "AI-generated feature specifications"  │
+│  [Filter: All ▼ | Draft | Approved | Rejected]                   │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────…──────────┬───────┬──────────┐ │
+│  │ Proposal                                │ Scope │ Status   │ │
+│  ├──────────────────────────────…──────────┼───────┼──────────┤ │
+│  │ Guided Onboarding Wizard               │ M     │ 🔵 Draft │ │
+│  │ "Step-by-step setup flow..."           │       │          │ │
+│  │ Cluster: Onboarding confusion · 23 men.│       │          │ │
+│  ├──────────────────────────────…──────────┼───────┼──────────┤ │
+│  │ Real-time Report Engine                │ L     │ ✅ Appr. │ │
+│  │ "Sub-second report generation..."      │       │          │ │
+│  │ Cluster: Report performance · 15 men.  │       │          │ │
+│  └──────────────────────────────…──────────┴───────┴──────────┘ │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- Click row → navigate to `/pm/proposals/[id]`
+- Status filter tabs: All, Draft, Approved, Rejected
+- Each row shows: proposal title, one-liner, source cluster label + mention count, scope badge, status badge
+- Status badges: Draft (blue), Approved (green), Rejected (gray)
+- Scope badges: S/M/L/XL with effort color coding
+
+**Data requirements:**
+```
+GET /api/v1/roadmap                           → proposals with scored ranking
+GET /api/v1/feature_proposals?status={filter}  → filtered proposal list (future)
+```
+
+---
+
+### 4.10 Proposal Detail (`/pm/proposals/[id]`)
+
+**Primary user goal:** Review a full feature spec, verify citations, and approve/reject.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  ← Back to Proposals                                                 │
+│  PageHeader: "{Feature Name}"                  Status: [DRAFT ▼]     │
+│  "{One-liner description}"                                           │
+│  Scope: M (1-3 weeks)  |  Cluster: Onboarding confusion             │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─ User Story ─────────────────────────────────────────────────┐   │
+│  │  As a new admin, I want a guided setup wizard so that I can   │   │
+│  │  configure permissions and create my first project in under   │   │
+│  │  30 minutes.                                                  │   │
+│  │                                                    [✏️ Edit] │   │
+│  └───────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─ Rationale (with citations) ─────────────────────────────────┐   │
+│  │  23 customers report onboarding friction as #1 pain point.    │   │
+│  │                                                               │   │
+│  │  Users abandon setup entirely: [1] "our team gave up on       │   │
+│  │  onboarding after day two" (Support Ticket #4521).            │   │
+│  │                                                               │   │
+│  │  [1] = clickable → opens source problem in side panel         │   │
+│  └───────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─ Success Metrics ────────────────────────────────────────────┐   │
+│  │  Metric                    │ Target  │ Reasoning              │   │
+│  │  Onboarding completion     │ >80%    │ Currently ~40%         │   │
+│  │  Time to first project     │ <30min  │ Currently 2-3 hours    │   │
+│  └───────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─ Risks ──────────────────────────────────────────────────────┐   │
+│  │  Risk                      │ Severity │ Mitigation            │   │
+│  │  Power users feel limited  │ Medium   │ "Skip wizard" option  │   │
+│  └───────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌─ Actions ────────────────────────────────────────────────────┐   │
+│  │  [✅ Approve]  [❌ Reject]  [🔄 Regenerate]  [🔨 Gen Tasks]│   │
+│  └───────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- **Inline editing:** Click [✏️ Edit] on any section → fields become editable textareas. Save/Cancel buttons appear. Calls `PATCH /feature_proposals/{id}`.
+- **Citation links:** Superscript `[1]` rendered as clickable links. On click, opens a `Sheet` (right panel) showing the source problem's full quote, evidence title, and severity. Click "View full" → navigates to problem detail.
+- **Approve/Reject:** Confirmation dialog. Updates proposal `status`. Approved proposals appear in roadmap. Rejected proposals are grayed out.
+- **Regenerate:** Confirmation dialog ("This will replace the current spec"). Triggers LLM job. Shows progress. On completion, refreshes proposal detail.
+- **Generate Tasks:** Triggers `POST /jobs/generate_tasks`. On completion, navigates to `/pm/proposals/[id]/tasks`.
+
+**Data requirements:**
+```
+GET /api/v1/feature_proposals/{id}              → full proposal with citations
+PATCH /api/v1/feature_proposals/{id}            → update fields
+POST /api/v1/feature_proposals/{id}/approve     → status change
+POST /api/v1/feature_proposals/{id}/reject      → status change
+POST /api/v1/feature_proposals/{id}/regenerate  → triggers job
+POST /api/v1/jobs/generate_tasks { proposal_id }→ triggers job
+```
+
+**States:**
+| State | Behavior |
+|---|---|
+| **Draft** | All sections editable. All action buttons enabled. |
+| **Approved** | Sections read-only (no edit button). Only "Reject" and "Generate Tasks" available. Green status badge. |
+| **Rejected** | Sections read-only. Only "Approve" available. Gray status badge. |
+| **Generating** | Skeleton placeholder for content. Progress bar. |
+
+---
+
+### 4.11 Task Tree (`/pm/proposals/[id]/tasks`)
+
+**Primary user goal:** See the implementation breakdown for a proposal, ready to export to engineering tools.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Proposal: "Guided Onboarding Wizard"                 │
+│  PageHeader: "Implementation Plan"                               │
+│  18 tasks  ·  Generated from: Guided Onboarding Wizard          │
+├──────────────────────────────────────────────────────────────────┤
+│  [Backend (6)] [Frontend (5)] [Data (3)] [QA (4)]  ← Tabs       │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ▾ Create onboarding state machine API              [M]          │
+│    Depends on: Create onboarding_progress table                  │
+│    Description: Build REST endpoints for managing onboarding...  │
+│                                                                  │
+│    Acceptance Criteria:                                           │
+│    ☐ POST /onboarding/start creates progress record             │
+│    ☐ POST /onboarding/next advances to next step               │
+│    ☐ GET /onboarding/status returns completion state            │
+│                                                                  │
+│  ▸ Create permissions template endpoint             [S]          │
+│  ▸ Add onboarding progress tracking                 [M]          │
+│  ▸ Create project scaffolding endpoint              [M]          │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│  [📋 Copy as Markdown]  [📥 Download JSON]  [🔄 Regenerate]     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- **Category tabs:** Backend, Frontend, Data, QA. Each tab shows its task list. Tab label includes count.
+- **Collapsible nodes:** Click the ▸/▾ chevron to expand/collapse. Expanded shows: description, acceptance criteria, dependencies.
+- **Effort badges:** XS (slate), S (blue), M (amber), L (orange), XL (red). Small pill on right side of each task row.
+- **Dependencies:** Shown as a muted text line linking to the dependency task name. Click → scrolls to and highlights the dependency task.
+- **Export:**
+  - "Copy as Markdown" → generates structured markdown with headers per category, nested bullets per task, acceptance criteria as checkbox list. Copies to clipboard. Toast: "Copied to clipboard."
+  - "Download JSON" → downloads structured JSON file with all task data. Browser download.
+- **Regenerate:** Confirmation → triggers new LLM job → replaces tree.
+
+**Data requirements:**
+```
+GET /api/v1/feature_proposals/{id}/tasks    → full task tree
+```
+
+**Component:** `TaskTree` with `TaskNode` recursive renderer, `TaskCategoryTabs` (Radix Tabs), `AcceptanceCriteria` checklist, `TaskExport` button group.
+
+---
+
+### 4.12 Roadmap (`/pm/roadmap`)
+
+**Primary user goal:** See all proposals ranked by priority score, with transparent scoring and adjustable weights.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Roadmap" + "Prioritized feature ranking"               │
+│  12 proposals  ·  Last clustered: Feb 12, 2026                      │
+│  [Persona ▼] [Segment ▼] [Status ▼]                                │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌──┬────────────────────────────┬──────┬───────┬───────┬────────┐  │
+│  │# │ Feature                    │Scope │Status │ Score │Breakdown│  │
+│  ├──┼────────────────────────────┼──────┼───────┼───────┼────────┤  │
+│  │1 │ Guided Onboarding Wizard   │ M    │✅ Appr│ 42.5  │ ▸      │  │
+│  │  │ Cluster: Onboarding · 23m │      │       │       │        │  │
+│  ├──┼────────────────────────────┼──────┼───────┼───────┼────────┤  │
+│  │2 │ Real-time Report Engine    │ L    │✅ Appr│ 38.1  │ ▾      │  │
+│  │  │ Cluster: Performance · 15m│      │       │       │        │  │
+│  │  │                                                             │  │
+│  │  │  Score Breakdown:                                           │  │
+│  │  │  Formula: (frequency × severity × weight) / effort          │  │
+│  │  │  Frequency:  28.0  ████████░░░░                             │  │
+│  │  │  Severity:   2.8   ███████░░░░░                             │  │
+│  │  │  Weight:     1.0   [━━━━━━━━●━━] ← adjustable slider       │  │
+│  │  │  Effort:     8     (L scope)                                │  │
+│  │  │  ─────────────────────────────                              │  │
+│  │  │  Final:      38.1  = (28 × 2.8 × 1.0) / 8                  │  │
+│  │  │                                                             │  │
+│  ├──┼────────────────────────────┼──────┼───────┼───────┼────────┤  │
+│  │3 │ Granular Permissions v2    │ L    │🔵 Drf │ 31.7  │ ▸      │  │
+│  └──┴────────────────────────────┴──────┴───────┴───────┴────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key interactions:**
+- **Expandable score breakdown:** Click ▸ on any row → inline expansion shows full formula, each variable with value + visual bar + explanation.
+- **Strategic weight slider:** Radix Slider component (0.1 to 3.0, step 0.1). On change, recalculates score client-side for instant feedback. On release, persists via `PATCH /roadmap/{proposalId}/weight`. Re-sorts the list automatically.
+- **Filters:** Persona, Segment, Status dropdowns. Filter the ranked list.
+- **Click proposal name:** Navigates to `/pm/proposals/[id]`.
+- **Click cluster name:** Navigates to `/pm/clusters/[id]`.
+
+**Data requirements:**
+```
+GET /api/v1/roadmap                                   → ranked proposals
+PATCH /api/v1/roadmap/{proposalId}/weight { weight }  → update strategic weight
+```
+
+---
+
+### 4.13 Settings (`/pm/settings`)
+
+**Primary user goal:** Configure API keys and prompt settings.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Settings" + "API configuration and prompt tuning"  │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌─ API Configuration ──────────────────────────────────────┐   │
+│  │  OpenAI API Key:    [●●●●●●●●●●●●sk-proj-xxxx]  [Edit] │   │
+│  │  Model:             [gpt-4o-mini ▼]                      │   │
+│  │  Backend URL:       http://localhost:8000   [Test ✅]    │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  ┌─ Extraction Settings ────────────────────────────────────┐   │
+│  │  Chunk size:        [1000] tokens                         │   │
+│  │  Chunk overlap:     [200] tokens                          │   │
+│  │  Extraction model:  [gpt-4o-mini ▼]                       │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  ┌─ Clustering Settings ────────────────────────────────────┐   │
+│  │  Similarity threshold: [0.75] [━━━━━━━━●━━]              │   │
+│  │  Min cluster size:     [3]                                │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│                                              [Save Settings]     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 4.14 Usage / Cost Tracking (`/pm/usage`)
+
+**Primary user goal:** Understand LLM costs and token consumption.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PageHeader: "Usage" + "LLM cost tracking and job history"       │
+├────────────┬────────────┬────────────┬──────────────────────────┤
+│ Total Calls│ Input Tok  │ Output Tok │ Total Cost               │
+│ 156        │ 245,800    │ 48,200     │ $3.42                    │
+├────────────┴────────────┴────────────┴──────────────────────────┤
+│                                                                  │
+│  ┌─ Cost by Model ──────────────────────────────────────────┐   │
+│  │  Model          │ Calls │ In Tokens │ Out Tokens │ Cost   │   │
+│  │  gpt-4o-mini    │  142  │ 231,000   │  44,500    │ $2.18  │   │
+│  │  gpt-4o         │   14  │  14,800   │   3,700    │ $1.24  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  ┌─ Job History ────────────────────────────────────────────┐   │
+│  │  Job Type         │ Status │ Started     │ Duration │ Cost │   │
+│  │  extract_problems  │ ✅     │ 2 min ago   │ 12s     │$0.04│   │
+│  │  embed_problems    │ ✅     │ 5 min ago   │ 8s      │$0.02│   │
+│  │  cluster           │ ⏳     │ just now    │ —       │ —   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Data requirements:**
+```
+GET /api/v1/llm/costs     → aggregated cost stats
+GET /api/v1/llm/calls     → individual job records
+```
+
+---
+
+## 5. Component Architecture
+
+### Directory Structure
+
+```
+components/
+├── pm/
+│   ├── layout/
+│   │   ├── PMSidebar.tsx              # Sidebar navigation
+│   │   └── PMLayout.tsx               # Layout wrapper (pipeline indicator + content area)
+│   │
+│   ├── pipeline/
+│   │   ├── PipelineIndicator.tsx      # Horizontal pipeline status bar
+│   │   └── PipelineStep.tsx           # Single step: dot + label + count
+│   │
+│   ├── evidence/
+│   │   ├── EvidenceTable.tsx          # TanStack Table for evidence list
+│   │   ├── EvidenceUploadForm.tsx     # Upload form with dropzone + metadata
+│   │   ├── EvidenceDetailTabs.tsx     # Tabs: Raw Text / Problems / Processing
+│   │   └── ChunkViewer.tsx            # Text with chunk boundary highlighting
+│   │
+│   ├── problems/
+│   │   ├── ProblemsDataTable.tsx      # TanStack Table with expandable rows
+│   │   ├── ProblemFilters.tsx         # Filter bar with dropdowns + search
+│   │   ├── SimilarProblemsPanel.tsx   # Sheet (slide-over) for similar problems
+│   │   └── ProblemExpandedRow.tsx     # Expanded row content: quote + actions
+│   │
+│   ├── clusters/
+│   │   ├── ClusterGrid.tsx            # Responsive card grid
+│   │   ├── ClusterCard.tsx            # Summary card with severity bar + quote
+│   │   ├── ClusterDetailView.tsx      # Full cluster detail layout
+│   │   └── SeverityChart.tsx          # Horizontal bar chart (Recharts)
+│   │
+│   ├── proposals/
+│   │   ├── ProposalList.tsx           # List with status badges
+│   │   ├── ProposalDetailView.tsx     # Full proposal spec with citations
+│   │   ├── ProposalEditor.tsx         # Inline editing for proposal fields
+│   │   ├── CitationLink.tsx           # Clickable [1] citation → side panel
+│   │   ├── MetricsTable.tsx           # Success metrics table
+│   │   ├── RisksTable.tsx             # Risks + mitigations table
+│   │   └── ProposalActions.tsx        # Approve/Reject/Regenerate/GenTasks
+│   │
+│   ├── tasks/
+│   │   ├── TaskTree.tsx               # Full tree with category tabs
+│   │   ├── TaskNode.tsx               # Collapsible single task node
+│   │   ├── TaskCategoryTabs.tsx       # Backend/Frontend/Data/QA tabs
+│   │   ├── AcceptanceCriteria.tsx     # Checkbox-style criteria list
+│   │   ├── EffortBadge.tsx            # XS/S/M/L/XL colored pill
+│   │   └── TaskExport.tsx             # Copy markdown + download JSON
+│   │
+│   ├── roadmap/
+│   │   ├── RoadmapTable.tsx           # Ranked table with expandable scores
+│   │   ├── ScoreBreakdown.tsx         # Formula visualization
+│   │   ├── WeightSlider.tsx           # Strategic weight adjuster (Radix Slider)
+│   │   └── RoadmapFilters.tsx         # Persona/Segment/Status filters
+│   │
+│   └── shared/
+│       ├── PageHeader.tsx             # [EXISTS] Page title + description + actions
+│       ├── QuoteBlock.tsx             # [EXISTS] Styled quote with severity color
+│       ├── SeverityBadge.tsx          # Colored pill: CRITICAL / HIGH / MED / LOW
+│       ├── StatusBadge.tsx            # Draft (blue) / Approved (green) / Rejected (gray)
+│       ├── ScopeBadge.tsx             # S / M / L / XL effort pill
+│       ├── EmptyState.tsx             # Icon + message + CTA button
+│       ├── JobProgress.tsx            # Inline progress bar with polling
+│       ├── DataTable.tsx              # TanStack Table wrapper with pagination
+│       ├── FilterDropdown.tsx         # Reusable filter dropdown
+│       ├── ConfirmDialog.tsx          # Confirmation modal for destructive actions
+│       └── SkeletonTable.tsx          # Shimmer skeleton for table loading
+│
+└── ui/                                # shadcn/ui primitives (unchanged)
+    ├── button.tsx
+    ├── card.tsx
+    ├── dialog.tsx
+    ├── dropdown-menu.tsx
+    ├── input.tsx
+    ├── progress.tsx
+    ├── scroll-area.tsx
+    ├── separator.tsx
+    ├── tabs.tsx
+    ├── textarea.tsx
+    ├── tooltip.tsx
+    ├── badge.tsx
+    ├── avatar.tsx
+    ├── sheet.tsx                       # NEW — side panels
+    ├── slider.tsx                     # NEW — Radix Slider for weight
+    ├── select.tsx                     # NEW — Radix Select for filters
+    ├── skeleton.tsx                   # NEW — skeleton loading
+    └── toast.tsx / toaster.tsx        # NEW — sonner integration
+```
+
+### Key Component Specifications
+
+#### `SeverityBadge`
+```tsx
+// components/pm/shared/SeverityBadge.tsx
+//
+// Props: { severity: "critical" | "high" | "medium" | "low" }
+//
+// Renders a small pill with text and background color:
+//   critical → bg-red-100 text-red-700 border-red-200      "CRITICAL"
+//   high     → bg-orange-100 text-orange-700 border-orange-200  "HIGH"
+//   medium   → bg-amber-100 text-amber-700 border-amber-200    "MEDIUM"
+//   low      → bg-green-100 text-green-700 border-green-200    "LOW"
+//
+// Size: text-[11px] font-semibold px-2 py-0.5 rounded-full
+// Always uppercase.
+```
+
+#### `StatusBadge`
+```tsx
+// components/pm/shared/StatusBadge.tsx
+//
+// Props: { status: "draft" | "approved" | "rejected" | "running" | "failed" }
+//
+// Renders:
+//   draft    → bg-blue-100 text-blue-700       "Draft"
+//   approved → bg-green-100 text-green-700     "Approved"
+//   rejected → bg-gray-100 text-gray-500       "Rejected"
+//   running  → bg-amber-100 text-amber-700     "Running"   + pulse animation
+//   failed   → bg-red-100 text-red-700         "Failed"
+//
+// Size: same as SeverityBadge
+```
+
+#### `EmptyState`
+```tsx
+// components/pm/shared/EmptyState.tsx
+//
+// Props: {
+//   icon: LucideIcon;
+//   title: string;              // "No problems extracted yet"
+//   description: string;        // "Upload evidence to get started."
+//   actionLabel?: string;       // "Upload Evidence"
+//   actionHref?: string;        // "/pm/evidence/upload"
+// }
+//
+// Layout: centered icon (24px, muted), title (16px), description (14px, muted),
+//         optional primary button below. Vertical stack with 12px gaps.
+```
+
+#### `JobProgress`
+```tsx
+// components/pm/shared/JobProgress.tsx
+//
+// Props: {
+//   jobId: string;
+//   label: string;              // "Extracting problems..."
+//   onComplete?: () => void;    // Callback when job finishes
+//   onError?: (error: string) => void;
+// }
+//
+// Behavior:
+// 1. Polls GET /api/v1/jobs/{jobId}/status every 2 seconds
+// 2. Shows: label + animated progress bar (indeterminate or percentage-based)
+// 3. On status === "completed": calls onComplete, shows success toast
+// 4. On status === "failed": calls onError, shows error toast with retry option
+// 5. Uses useJobsStore to track globally (PipelineIndicator can reflect it)
+```
+
+#### `DataTable` (TanStack Table Wrapper)
+```tsx
+// components/pm/shared/DataTable.tsx
+//
+// Props: {
+//   columns: ColumnDef[];
+//   data: T[];
+//   pagination?: { page: number; totalPages: number; onPageChange: (p: number) => void };
+//   sorting?: boolean;          // Enable sortable headers
+//   expandable?: boolean;       // Enable row expansion
+//   renderExpanded?: (row: T) => ReactNode;
+//   emptyState?: ReactNode;     // Custom empty state
+//   loading?: boolean;          // Show skeleton
+//   skeletonRows?: number;      // Default: 8
+// }
+//
+// Features:
+// - TanStack Table core with flexRender
+// - Sortable column headers (arrow indicators)
+// - Expandable rows (chevron on leftmost column)
+// - Pagination controls (Previous/Next + page numbers)
+// - Skeleton loading state (shimmer rows matching column count)
+// - Responsive: full table on desktop, stacked cards on mobile
+```
+
+---
+
+## 6. Interaction & Animation System
+
+### Animation Principles
+
+1. **Purpose over polish** — Every animation communicates state change (appears, disappears, transitions, loads). No animation for decoration.
+2. **Duration: 150–300ms** — Fast enough to feel instant, slow enough to be perceived. Never exceed 500ms for any UI transition.
+3. **Easing: ease-out** — Elements settle naturally. Use `cubic-bezier(0.16, 1, 0.3, 1)` for entrances (Vercel-style spring). Use `ease-in` only for exits.
+4. **Reduce motion** — Respect `prefers-reduced-motion`. All animations wrapped in a `motion.div` that checks this preference. Reduced motion = instant state changes, no transitions.
+
+### Specific Animations
+
+| Element | Animation | Duration | Implementation |
+|---|---|---|---|
+| **Page transitions** | Fade + slide up 8px on enter | 200ms | Framer Motion `initial={{ opacity: 0, y: 8 }}` on page container |
+| **Card hover** | Subtle shadow lift | 200ms | CSS `transition-shadow duration-200 hover:shadow-md` |
+| **Button press** | Scale down 98% | 100ms | CSS `active:scale-[0.98]` |
+| **Button hover** | Background color shift | 150ms | CSS `transition-colors duration-150` |
+| **Toast notification** | Slide in from bottom-right | 300ms | Sonner default animation |
+| **Sheet (side panel)** | Slide in from right | 250ms | Radix Sheet default |
+| **Dialog** | Fade + scale from 95% | 200ms | Radix Dialog default |
+| **Row expansion** | Height animate + fade | 200ms | `accordion-down` keyframe (already defined) |
+| **Pipeline indicator** | Staggered fade-in on mount | 50ms stagger | Framer Motion `delay: index * 0.05` (already implemented) |
+| **Skeleton shimmer** | Horizontal gradient sweep | 2s loop | CSS `shimmer` keyframe (already defined) |
+| **Job progress bar** | Width transition | 300ms | CSS `transition-all duration-300` on width |
+| **Status dot (running)** | Pulse opacity | 2s loop | CSS `animate-pulse` on running status |
+| **Filter dropdown** | Fade + scale from top | 150ms | Radix Popover default |
+| **Score breakdown expand** | Height + opacity | 200ms | Framer Motion `AnimatePresence` |
+| **Weight slider** | Thumb drag → score recalculate | Instant + 200ms | Value changes instantly, score number fades to new value |
+
+### Micro-Interactions
+
+| Trigger | Feedback |
+|---|---|
+| Upload success | Toast with green check. Evidence list auto-refreshes. |
+| Extraction complete | Toast: "47 problems extracted from '{title}'". Problems page shows new data. |
+| Clustering complete | Toast: "8 clusters created." Clusters page auto-refreshes. |
+| Proposal approved | Button flashes green briefly. Status badge transitions. Row re-sorts in roadmap. |
+| Copy to clipboard | Toast: "Copied to clipboard." Button text briefly changes to "Copied ✓" |
+| Drag file over dropzone | Border transitions to blue dashed. Background lightens. "Drop to upload" text appears. |
+| Error | Toast with red color. Retry button inline. |
+| Empty filter result | Table content fades to empty state with "No matches" + clear filter button |
+
+### Loading Skeleton Specifications
+
+Every data-dependent view has a corresponding skeleton:
+
+| Page | Skeleton Description |
+|---|---|
+| Evidence List | 8 table rows, each with 5 cells. Cells are rounded rectangles (60-80% width) shimmer. |
+| Problems Table | Same as evidence but with 6 columns. Severity column skeleton is a small circle. |
+| Cluster Grid | 6 cards (3×2 grid). Each card: rectangle for title, thin bar for severity, 2-line rectangle for quote. |
+| Proposal Detail | Full-width rectangle for title. 3 section blocks each 80px tall. Action buttons row at bottom. |
+| Roadmap Table | 5 table rows with rank numbers, title rectangles, score circles. |
+| Dashboard | 5 stat cards as rectangles. Next actions panel as 3 lines. Jobs list as 5 rows. |
+
+---
+
+## 7. User Experience & Navigation Strategy
+
+### Information Architecture
+
+```
+Primary Navigation (Sidebar — always visible on desktop)
+├── Dashboard       → Pipeline overview, next actions
+├── Evidence        → Upload, browse, manage source material
+├── Problems        → All extracted problem mentions (table)
+├── Clusters        → Grouped pain themes (card grid)
+├── Proposals       → Feature specifications (list)
+├── Tasks           → Implementation plans (tree view)
+├── Roadmap         → Prioritized ranking (scored table)
+├── ───────────     → Divider
+├── Settings        → API keys, model config, thresholds
+└── Usage           → Cost tracking, job history
+```
+
+### Sidebar Behavior
+
+| Viewport | Behavior |
+|---|---|
+| Desktop (≥1024px) | Fixed 256px sidebar. Always visible. Active item highlighted with primary bg color. |
+| Tablet (768–1023px) | Collapsed to 56px icon-only sidebar. Hover/click to expand temporarily. |
+| Mobile (<768px) | Hidden. Hamburger icon in top bar. Slides in as overlay on click. |
+
+**Sidebar design rules:**
+- Logo/brand area at top: "PM" icon badge + "Nexus Pipeline" text
+- Nav items: icon (16px) + label. 8px gap. Rounded-xl shape for active state.
+- Active state: `bg-primary text-white shadow-sm`
+- Hover state: `bg-muted`
+- Divider between main nav (Dashboard–Roadmap) and settings nav (Settings, Usage)
+- Footer: tagline "Evidence to roadmap, end to end." in muted caption text
+
+### Pipeline Indicator (Horizontal Breadcrumb)
+
+Always visible at the top of the content area. Shows 6 pipeline steps with status dots and counts:
+
+```
+● Evidence (12) ── ● Problems (47) ── ● Clusters (8) ── ○ Proposals ── ○ Tasks ── ○ Roadmap
+  complete           complete            complete           pending        pending      pending
+```
+
+**Behavior:**
+- Dots: green (complete), amber pulse (running), gray (pending)
+- Counts: shown in muted pill badge next to label
+- Click step label → navigates to that page
+- On pages within a step (e.g., `/pm/evidence/[id]`), the Evidence step is highlighted/underlined
+
+### Breadcrumb System
+
+Not a traditional breadcrumb bar. Instead, each detail page has a **"← Back to {Parent}"** link at the top left of PageHeader. This is simpler and cleaner than full breadcrumbs for a linear pipeline.
+
+Examples:
+- Evidence detail: `← Back to Evidence`
+- Problem detail: `← Back to Problems`
+- Proposal detail: `← Back to Proposals`
+- Task tree: `← Back to Proposal: "Guided Onboarding Wizard"`
+- Cluster detail: `← Back to Clusters`
+
+### Search Behavior
+
+- Global search: NOT implemented in Phase 1–3. The pipeline is navigated via sidebar + pipeline indicator.
+- Per-page search: Free text search field in filter bars on Problems and Evidence pages. Searches `problem_statement` and `evidence.title` respectively. Debounced 300ms. Server-side via query parameter.
+
+### Keyboard Shortcuts
+
+| Key | Action | Scope |
+|---|---|---|
+| `1`–`7` | Navigate to Dashboard/Evidence/.../Roadmap | Global (when no input focused) |
+| `/` | Focus search field (if present on current page) | Problems, Evidence pages |
+| `Esc` | Close open Sheet, Dialog, or expanded row | Global |
+| `Enter` on table row | Navigate to detail page | Problems, Evidence, Proposals tables |
+| `j` / `k` | Move selection down/up in table | Problems, Evidence tables |
+
+Implementation: `useEffect` with `keydown` listener in `PMLayout`. Check `document.activeElement` to avoid conflicts with text inputs.
+
+### Accessibility Standards
+
+| Standard | Requirement |
+|---|---|
+| **WCAG 2.1 AA** | Full compliance target |
+| **Focus management** | All interactive elements focusable. Focus ring visible (2px blue outline). Tab order follows visual layout. |
+| **Color contrast** | All text meets 4.5:1 ratio against background. Tested with our warm neutrals: `ink-primary` (#1A2332) on `surface-0` (#FAFAF6) = 14.8:1. `ink-muted` (#8A9AB5) on `surface-0` = 3.8:1 (use only for non-essential labels; pair with icons). |
+| **Screen reader** | All icons have `aria-label`. Tables use `thead`/`tbody`. Status badges have `role="status"`. Pipeline indicator has `aria-live="polite"` for dynamic updates. |
+| **Motion** | All animations respect `prefers-reduced-motion: reduce`. |
+| **Labels** | All form inputs have associated `<label>` elements. Error messages linked via `aria-describedby`. |
+
+---
+
+## 8. State Management & Data Layer
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        Data Flow                                  │
+│                                                                  │
+│  Server Components (RSC)          Client Components              │
+│  ┌────────────────────┐          ┌────────────────────────┐     │
+│  │ Direct fetch in     │          │ TanStack Query for:    │     │
+│  │ page.tsx for initial │          │ - Mutations (POST/PATCH)│    │
+│  │ page data (SSR)     │          │ - Polling (job status)  │    │
+│  │                     │          │ - Re-fetches after      │    │
+│  │ pmFetch() /         │          │   mutation              │    │
+│  │ pmFetchSafe()       │          │ - Client-side filters   │    │
+│  └────────────────────┘          │   that trigger refetch   │    │
+│                                  └────────────────────────────┘  │
+│                                                                  │
+│  Zustand Stores (Client-only)                                    │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ useJobsStore    → Active job tracking (global)              │  │
+│  │ useFilterStore  → Problem/Evidence filters (persist in URL) │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Data Fetching Strategy
+
+| Scenario | Strategy | Why |
+|---|---|---|
+| Initial page load (list pages) | Server Component `fetch()` via `pmFetchSafe()` | SEO not relevant, but avoids client-side loading spinner on first paint. Fast. |
+| Detail pages | Server Component `fetch()` | Single resource, no interactivity needed for initial render. |
+| Mutations (create, update, delete) | TanStack Query `useMutation()` in client component | Optimistic updates, error rollback, automatic cache invalidation. |
+| Filter changes | URL search params + server refetch | Filters bookmarkable/shareable. `useRouter.push()` updates URL, `page.tsx` re-renders with new params. |
+| Job polling | TanStack Query `useQuery()` with `refetchInterval` | Automatic 2s polling when job is `pending` or `running`. Stops on `completed`/`failed`. |
+| Job tracking (global) | Zustand `useJobsStore` | Jobs started on one page should be visible on all pages (PipelineIndicator, Dashboard). Store syncs across components. |
+
+### Zustand Store Definitions
+
+#### `useJobsStore` (unchanged from current implementation)
 
 ```typescript
-// lib/pm/hooks.ts
+interface JobsState {
+  activeJobs: Map<string, JobStatusResponse>;
+  setJob: (id: string, job: JobStatusResponse) => void;
+  removeJob: (id: string) => void;
+}
+```
 
+#### `useFilterStore` (with URL sync)
+
+```typescript
+interface FilterState {
+  severity: string;
+  persona: string;
+  tag: string;
+  search: string;
+  setSeverity: (v: string) => void;
+  setPersona: (v: string) => void;
+  setTag: (v: string) => void;
+  setSearch: (v: string) => void;
+  clearFilters: () => void;
+}
+
+// Usage: Sync with URL search params on change.
+// On page load, initialize from URL params.
+// On filter change, update both store and URL.
+```
+
+### TanStack Query Configuration
+
+```typescript
+// lib/pm/queryClient.ts
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,           // 30 seconds before refetch
+      gcTime: 5 * 60_000,         // 5 minutes garbage collection
+      retry: 1,                    // One retry on failure
+      refetchOnWindowFocus: false, // Don't refetch on tab focus (PM tool, not real-time)
+    },
+    mutations: {
+      retry: 0,                    // No retry on mutations
+    },
+  },
+});
+```
+
+### Query Key Structure
+
+```typescript
 export const pmKeys = {
   evidence: {
     all: ['pm', 'evidence'] as const,
-    list: (filters: EvidenceFilters) => ['pm', 'evidence', 'list', filters] as const,
+    list: (filters?: Record<string, string>) => ['pm', 'evidence', 'list', filters] as const,
     detail: (id: string) => ['pm', 'evidence', id] as const,
   },
   problems: {
     all: ['pm', 'problems'] as const,
-    list: (filters: ProblemFilters) => ['pm', 'problems', 'list', filters] as const,
+    list: (filters?: Record<string, string>) => ['pm', 'problems', 'list', filters] as const,
     detail: (id: string) => ['pm', 'problems', id] as const,
     similar: (text: string) => ['pm', 'problems', 'similar', text] as const,
     stats: ['pm', 'problems', 'stats'] as const,
@@ -678,572 +1410,90 @@ export const pmKeys = {
   },
   proposals: {
     all: ['pm', 'proposals'] as const,
-    list: (filters: ProposalFilters) => ['pm', 'proposals', 'list', filters] as const,
+    list: (filters?: Record<string, string>) => ['pm', 'proposals', 'list', filters] as const,
     detail: (id: string) => ['pm', 'proposals', id] as const,
   },
   tasks: {
     byProposal: (proposalId: string) => ['pm', 'tasks', proposalId] as const,
   },
   roadmap: {
-    ranked: (filters: RoadmapFilters) => ['pm', 'roadmap', filters] as const,
+    ranked: (filters?: Record<string, string>) => ['pm', 'roadmap', filters] as const,
   },
   jobs: {
     detail: (id: string) => ['pm', 'jobs', id] as const,
   },
+  costs: {
+    summary: ['pm', 'costs', 'summary'] as const,
+    calls: ['pm', 'costs', 'calls'] as const,
+  },
 };
 ```
 
-### Data Fetching Patterns
+### API Client Extensions
+
+Current `lib/pm/api.ts` needs these additions beyond what exists:
 
 ```typescript
-// Example: useProblems hook
-export function useProblems(filters: ProblemFilters) {
-  return useQuery({
-    queryKey: pmKeys.problems.list(filters),
-    queryFn: () => pmApi.getProblems(filters),
-    staleTime: 30_000,  // 30 seconds
-  });
-}
+// ── Proposals (CRUD + actions) ──
 
-// Example: mutation with optimistic update
-export function useApproveProposal() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (id: string) => pmApi.approveProposal(id),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: pmKeys.proposals.detail(id) });
-      queryClient.invalidateQueries({ queryKey: pmKeys.roadmap.ranked({}) });
-    },
-  });
-}
+export const getProposals = (filters?: Record<string, string>) =>
+  pmFetch<PaginatedResponse<Proposal>>(`/feature_proposals?${toQS(filters)}`);
 
-// Example: polling for async job
-export function useJobStatus(jobId: string | null) {
-  return useQuery({
-    queryKey: pmKeys.jobs.detail(jobId!),
-    queryFn: () => pmApi.getJobStatus(jobId!),
-    enabled: !!jobId,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === 'running' || status === 'pending' ? 2000 : false;
-    },
+export const getProposalDetail = (id: string) =>
+  pmFetch<ProposalDetail>(`/feature_proposals/${id}`);
+
+export const updateProposal = (id: string, data: Partial<Proposal>) =>
+  pmFetch<Proposal>(`/feature_proposals/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
   });
-}
+
+export const approveProposal = (id: string) =>
+  pmFetch<Proposal>(`/feature_proposals/${id}/approve`, { method: "POST" });
+
+export const rejectProposal = (id: string) =>
+  pmFetch<Proposal>(`/feature_proposals/${id}/reject`, { method: "POST" });
+
+export const regenerateProposal = (id: string) =>
+  pmFetch<JobResponse>(`/feature_proposals/${id}/regenerate`, { method: "POST" });
+
+// ── Tasks ──
+
+export const getTasks = (proposalId: string) =>
+  pmFetch<TaskTree>(`/feature_proposals/${proposalId}/tasks`);
+
+export const generateTasks = (proposalId: string) =>
+  pmFetch<JobResponse>(`/jobs/generate_tasks`, {
+    method: "POST",
+    body: JSON.stringify({ proposal_id: proposalId }),
+  });
+
+export const generateProposal = (clusterId: string) =>
+  pmFetch<JobResponse>(`/jobs/generate_proposal`, {
+    method: "POST",
+    body: JSON.stringify({ cluster_id: clusterId }),
+  });
+
+// ── Roadmap ──
+
+export const updateWeight = (proposalId: string, weight: number) =>
+  pmFetch<void>(`/roadmap/${proposalId}/weight`, {
+    method: "PATCH",
+    body: JSON.stringify({ strategic_weight: weight }),
+  });
 ```
 
----
+### Types Extensions
 
-## API Integration Layer
-
-### PM API Client
+Current `lib/pm/types.ts` needs these additions:
 
 ```typescript
-// lib/pm/api.ts
+// ── Proposal Detail ──
 
-const PM_BASE = '/api/v1';
+export type ProposalStatus = "draft" | "approved" | "rejected" | "archived";
+export type ScopeEstimate = "S" | "M" | "L" | "XL";
 
-export const pmApi = {
-  // Evidence
-  uploadEvidence: (data: EvidenceUpload) =>
-    post<Evidence>(`${PM_BASE}/evidence`, data),
-  
-  getEvidence: (filters?: EvidenceFilters) =>
-    get<PaginatedResponse<Evidence>>(`${PM_BASE}/evidence`, filters),
-  
-  getEvidenceDetail: (id: string) =>
-    get<EvidenceDetail>(`${PM_BASE}/evidence/${id}`),
-  
-  deleteEvidence: (id: string) =>
-    del(`${PM_BASE}/evidence/${id}`),
-
-  // Problems
-  getProblems: (filters?: ProblemFilters) =>
-    get<PaginatedResponse<ProblemMention>>(`${PM_BASE}/problems`, filters),
-  
-  getProblemDetail: (id: string) =>
-    get<ProblemDetail>(`${PM_BASE}/problems/${id}`),
-  
-  getSimilarProblems: (text: string, limit?: number) =>
-    get<SimilarProblem[]>(`${PM_BASE}/problems/similar`, { text, limit }),
-  
-  getProblemStats: () =>
-    get<ProblemStats>(`${PM_BASE}/problems/stats`),
-
-  // Jobs
-  triggerExtraction: (evidenceId: string) =>
-    post<Job>(`${PM_BASE}/jobs/extract_problems`, { evidence_id: evidenceId }),
-  
-  triggerClustering: () =>
-    post<Job>(`${PM_BASE}/jobs/cluster`),
-  
-  triggerProposalGeneration: (clusterId: string) =>
-    post<Job>(`${PM_BASE}/jobs/generate_proposal`, { cluster_id: clusterId }),
-  
-  triggerTaskGeneration: (proposalId: string) =>
-    post<Job>(`${PM_BASE}/jobs/generate_tasks`, { proposal_id: proposalId }),
-  
-  getJobStatus: (jobId: string) =>
-    get<Job>(`${PM_BASE}/jobs/${jobId}`),
-
-  // Clusters
-  getClusters: () =>
-    get<Cluster[]>(`${PM_BASE}/clusters`),
-  
-  getClusterDetail: (id: string) =>
-    get<ClusterDetail>(`${PM_BASE}/clusters/${id}`),
-
-  // Proposals
-  getProposals: (filters?: ProposalFilters) =>
-    get<FeatureProposal[]>(`${PM_BASE}/feature_proposals`, filters),
-  
-  getProposalDetail: (id: string) =>
-    get<FeatureProposalDetail>(`${PM_BASE}/feature_proposals/${id}`),
-  
-  updateProposal: (id: string, data: Partial<FeatureProposal>) =>
-    patch<FeatureProposal>(`${PM_BASE}/feature_proposals/${id}`, data),
-  
-  approveProposal: (id: string) =>
-    post(`${PM_BASE}/feature_proposals/${id}/approve`),
-  
-  rejectProposal: (id: string) =>
-    post(`${PM_BASE}/feature_proposals/${id}/reject`),
-  
-  regenerateProposal: (id: string) =>
-    post<Job>(`${PM_BASE}/feature_proposals/${id}/regenerate`),
-
-  // Tasks
-  getTasks: (proposalId: string) =>
-    get<TaskTree>(`${PM_BASE}/feature_proposals/${proposalId}/tasks`),
-  
-  updateTask: (taskId: string, data: Partial<Task>) =>
-    patch<Task>(`${PM_BASE}/tasks/${taskId}`, data),
-
-  // Roadmap
-  getRoadmap: (filters?: RoadmapFilters) =>
-    get<RoadmapResponse>(`${PM_BASE}/roadmap`, filters),
-  
-  updateWeight: (proposalId: string, weight: number) =>
-    patch(`${PM_BASE}/roadmap/${proposalId}/weight`, { strategic_weight: weight }),
-};
-```
-
----
-
-## Page-by-Page Specification
-
-### Dashboard (`/pm`)
-
-**Purpose:** Pipeline overview — at-a-glance status of every stage.
-
-**Content:**
-- Pipeline indicator (large, prominent)
-- Stats cards: evidence count, problem count, cluster count, proposal count
-- Recent activity feed (last 10 jobs with status)
-- Quick actions: "Upload Evidence", "Run Clustering", "View Roadmap"
-- Active jobs list with progress
-
-**Data Requirements:**
-- `GET /api/v1/problems/stats`
-- `GET /api/v1/clusters` (count)
-- `GET /api/v1/feature_proposals` (count by status)
-- Recent jobs (last 10)
-
----
-
-### Evidence List (`/pm/evidence`)
-
-**Purpose:** Browse and manage uploaded source material.
-
-**Content:**
-- Table: title, source type, persona, segment, date, chunk count, extraction status
-- Sortable by any column
-- "Upload Evidence" button (top right)
-- Row actions: view detail, re-extract, delete
-
-**Data Requirements:**
-- `GET /api/v1/evidence` (paginated)
-
----
-
-### Evidence Detail (`/pm/evidence/[id]`)
-
-**Purpose:** View source text, chunks, and extracted problems for a single evidence item.
-
-**Content:**
-- Header: title, metadata (type, persona, segment, date)
-- Tab 1: Raw text (with chunk boundaries highlighted)
-- Tab 2: Extracted problems (inline table)
-- Tab 3: Processing history (jobs, status, costs)
-- Action: "Re-extract Problems"
-
-**Data Requirements:**
-- `GET /api/v1/evidence/{id}`
-
----
-
-### Problems Table (`/pm/problems`)
-
-**Purpose:** Searchable, filterable table of all extracted problem mentions.
-
-**Content:**
-- TanStack Table with columns: problem statement, severity, persona, tags, source, date
-- Multi-filter: persona dropdown, severity dropdown, tag multi-select, free text search
-- Expandable rows: show full quote + source reference
-- Row action: "View Similar" opens side panel
-- Aggregate stats bar at top: total count, severity distribution
-
-**Data Requirements:**
-- `GET /api/v1/problems` (paginated, filtered)
-- `GET /api/v1/problems/stats`
-
----
-
-### Cluster Grid (`/pm/clusters`)
-
-**Purpose:** Visual overview of grouped pain themes.
-
-**Content:**
-- Card grid (responsive: 1-3 columns)
-- Each card: label, count, severity mini-bar, top quote
-- Sorted by member count (biggest pains first)
-- "Run Clustering" button (if unclustered problems exist)
-- Filter: minimum member count
-
-**Data Requirements:**
-- `GET /api/v1/clusters`
-
----
-
-### Cluster Detail (`/pm/clusters/[id]`)
-
-**Purpose:** Deep dive into a single pain cluster.
-
-**Content:**
-- Header: label, summary, member count
-- Severity distribution chart (horizontal bars)
-- Persona breakdown
-- Top quotes (3-5, styled as blockquotes with attribution)
-- Full member table (all problem mentions in cluster)
-- Proposal status: generated / not generated
-- "Generate Feature Proposal" button
-
-**Data Requirements:**
-- `GET /api/v1/clusters/{id}`
-
----
-
-### Proposal List (`/pm/proposals`)
-
-**Purpose:** Browse all feature proposals with status management.
-
-**Content:**
-- List with status badges: draft (blue), approved (green), rejected (gray)
-- Each item: feature name, one-liner, scope, status, cluster link
-- Filter by status
-- Sort by: created date, scope, cluster size
-
-**Data Requirements:**
-- `GET /api/v1/feature_proposals`
-
----
-
-### Proposal Detail (`/pm/proposals/[id]`)
-
-**Purpose:** Full feature specification with citation verification.
-
-**Content:**
-- Feature name + one-liner (editable)
-- User story (editable)
-- JTBD framing (editable)
-- Rationale with clickable citations
-- Success metrics table
-- Risks table
-- Edge cases list
-- Scope estimate
-- Source cluster link
-- Version history (collapsible)
-- Actions: Edit, Regenerate, Approve, Reject, Generate Tasks
-
-**Data Requirements:**
-- `GET /api/v1/feature_proposals/{id}`
-
-**Citation Behavior:**
-- Citations rendered as superscript links: `[1]`
-- Hover: tooltip with quote preview
-- Click: navigate to source problem detail or open side panel
-
----
-
-### Task Tree (`/pm/proposals/[id]/tasks`)
-
-**Purpose:** Dev-ready implementation breakdown.
-
-**Content:**
-- Category tabs: Backend, Frontend, Data, QA
-- Collapsible tree within each category
-- Each task node: title, effort badge, description (expand), acceptance criteria (expand)
-- Dependency indicators
-- Export: copy as markdown, download as JSON
-
-**Data Requirements:**
-- `GET /api/v1/feature_proposals/{id}/tasks`
-
----
-
-### Roadmap (`/pm/roadmap`)
-
-**Purpose:** Prioritized ranking of all proposals.
-
-**Content:**
-- Ranked table: rank, feature name, scope, status, score
-- Expandable score breakdown per row
-- Strategic weight slider (inline adjustment)
-- Filters: persona, segment, tag, status
-- Total proposal count, last clustered timestamp
-
-**Data Requirements:**
-- `GET /api/v1/roadmap`
-- `PATCH /api/v1/roadmap/{proposalId}/weight` (on slider change)
-
----
-
-## Design System & Patterns
-
-### Color Palette (Severity)
-
-```
-Critical:  bg-red-100    text-red-700    border-red-300
-High:      bg-orange-100 text-orange-700 border-orange-300
-Medium:    bg-yellow-100 text-yellow-700 border-yellow-300
-Low:       bg-green-100  text-green-700  border-green-300
-```
-
-### Status Badges
-
-```
-Draft:      bg-blue-100   text-blue-700
-Approved:   bg-green-100  text-green-700
-Rejected:   bg-gray-100   text-gray-500
-Generating: bg-purple-100 text-purple-700 (pulse animation)
-```
-
-### Effort Badges
-
-```
-XS:  bg-slate-100  text-slate-600  "XS"
-S:   bg-blue-100   text-blue-600   "S"
-M:   bg-yellow-100 text-yellow-600 "M"
-L:   bg-orange-100 text-orange-600 "L"
-XL:  bg-red-100    text-red-600    "XL"
-```
-
-### Quote Block Component
-
-```tsx
-<QuoteBlock
-  text="I spent 3 hours trying to set up my first project"
-  source="Customer Interview - Acme Corp PM"
-  date="Jan 15, 2026"
-  severity="high"
-  onClick={() => navigateToSource(evidenceId)}
-/>
-```
-
-Rendered as:
-```
-┌─────────────────────────────────────────────────────┐
-│  ❝ I spent 3 hours trying to set up my first       │
-│    project and still couldn't figure out             │
-│    permissions ❞                                     │
-│                                                     │
-│  — Customer Interview - Acme Corp PM  ·  Jan 2026  │
-│                                                 🔴  │
-└─────────────────────────────────────────────────────┘
-```
-
-### Pipeline Indicator Component
-
-```tsx
-<PipelineIndicator
-  steps={[
-    { label: "Evidence", count: 12, status: "complete" },
-    { label: "Problems", count: 47, status: "complete" },
-    { label: "Clusters", count: null, status: "running" },
-    { label: "Proposals", count: null, status: "pending" },
-    { label: "Tasks", count: null, status: "pending" },
-    { label: "Roadmap", count: null, status: "pending" },
-  ]}
-/>
-```
-
-### Async Job Pattern
-
-All LLM operations are async. The frontend handles this consistently:
-
-1. **Trigger action** → API returns `job_id`
-2. **Show inline progress** → Poll `GET /jobs/{id}` every 2s
-3. **On completion** → Invalidate relevant queries, show toast
-4. **On failure** → Show error with retry button
-
-```tsx
-function useAsyncJob(triggerFn: () => Promise<Job>) {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const jobStatus = useJobStatus(jobId);
-  
-  const trigger = async () => {
-    const job = await triggerFn();
-    setJobId(job.id);
-  };
-
-  useEffect(() => {
-    if (jobStatus.data?.status === 'completed') {
-      toast.success('Processing complete');
-      // invalidate relevant queries
-    }
-    if (jobStatus.data?.status === 'failed') {
-      toast.error(`Failed: ${jobStatus.data.error_message}`);
-    }
-  }, [jobStatus.data?.status]);
-
-  return { trigger, isRunning: jobStatus.data?.status === 'running', progress: jobStatus.data };
-}
-```
-
-### Responsive Breakpoints
-
-```
-Mobile  (< 768px):   Single column, stacked cards, simplified tables
-Tablet  (768-1024px): Two column grid, sidebar collapses
-Desktop (> 1024px):   Full layout, sidebar + content + optional side panel
-```
-
-Priority: **Desktop first** — PMs primarily work on desktop. Mobile is nice-to-have, not critical.
-
----
-
-## TypeScript Types
-
-### Core Types
-
-```typescript
-// lib/pm/types.ts
-
-// ── Evidence ──
-
-type SourceType = 'interview' | 'support_ticket' | 'sales_note' | 'survey' | 'other';
-
-interface Evidence {
-  id: string;
-  title: string;
-  source_type: SourceType;
-  persona: string | null;
-  segment: string | null;
-  source_date: string | null;
-  chunk_count: number;
-  extraction_status: JobStatus;
-  created_at: string;
-}
-
-interface EvidenceDetail extends Evidence {
-  raw_text: string;
-  chunks: EvidenceChunk[];
-  problems: ProblemMention[];
-  jobs: Job[];
-}
-
-interface EvidenceChunk {
-  id: string;
-  chunk_index: number;
-  chunk_text: string;
-  start_offset: number;
-  end_offset: number;
-  token_count: number;
-}
-
-interface EvidenceUpload {
-  title: string;
-  source_type: SourceType;
-  persona?: string;
-  segment?: string;
-  source_date?: string;
-  raw_text: string;
-}
-
-// ── Problems ──
-
-type Severity = 'critical' | 'high' | 'medium' | 'low';
-
-interface ProblemMention {
-  id: string;
-  evidence_id: string;
-  problem_statement: string;
-  persona: string | null;
-  segment: string | null;
-  severity: Severity;
-  quote_text: string;
-  tags: string[];
-  created_at: string;
-}
-
-interface ProblemDetail extends ProblemMention {
-  evidence_title: string;
-  source_type: SourceType;
-  source_date: string | null;
-  chunk_text: string;
-  similar_problems: SimilarProblem[];
-}
-
-interface SimilarProblem {
-  problem: ProblemMention;
-  similarity_score: number;
-}
-
-interface ProblemStats {
-  total: number;
-  by_severity: Record<Severity, number>;
-  by_persona: Record<string, number>;
-  by_tag: Record<string, number>;
-  by_source_type: Record<SourceType, number>;
-}
-
-// ── Clusters ──
-
-interface Cluster {
-  id: string;
-  label: string;
-  summary: string | null;
-  member_count: number;
-  avg_severity: number;
-  severity_distribution: Record<Severity, number>;
-  top_quotes: ClusterQuote[];
-  has_proposal: boolean;
-  created_at: string;
-}
-
-interface ClusterDetail extends Cluster {
-  members: ProblemMention[];
-  persona_distribution: Record<string, number>;
-  proposal: FeatureProposal | null;
-}
-
-interface ClusterQuote {
-  text: string;
-  source: string;
-  severity: Severity;
-  problem_id: string;
-}
-
-// ── Proposals ──
-
-type ProposalStatus = 'draft' | 'approved' | 'rejected' | 'archived';
-type ScopeEstimate = 'S' | 'M' | 'L' | 'XL';
-
-interface FeatureProposal {
-  id: string;
-  cluster_id: string;
-  feature_name: string;
-  one_liner: string;
+export interface ProposalDetail extends Proposal {
   user_story: string | null;
   jtbd_framing: string | null;
   rationale: string;
@@ -1252,31 +1502,24 @@ interface FeatureProposal {
   edge_cases: string[];
   scope_estimate: ScopeEstimate;
   status: ProposalStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-interface FeatureProposalDetail extends FeatureProposal {
   citations: Citation[];
-  versions: ProposalVersion[];
   cluster: Cluster;
   tasks_generated: boolean;
-  priority_score: PriorityScore | null;
 }
 
-interface SuccessMetric {
+export interface SuccessMetric {
   metric: string;
   target: string;
   reasoning: string;
 }
 
-interface Risk {
+export interface Risk {
   risk: string;
   mitigation: string;
-  severity: 'high' | 'medium' | 'low';
+  severity: "high" | "medium" | "low";
 }
 
-interface Citation {
+export interface Citation {
   id: string;
   problem_id: string;
   citation_context: string;
@@ -1284,19 +1527,12 @@ interface Citation {
   evidence_title: string;
 }
 
-interface ProposalVersion {
-  id: string;
-  version_number: number;
-  change_reason: string | null;
-  created_at: string;
-}
-
 // ── Tasks ──
 
-type TaskCategory = 'backend' | 'frontend' | 'data' | 'qa';
-type TaskEffort = 'XS' | 'S' | 'M' | 'L' | 'XL';
+export type TaskCategory = "backend" | "frontend" | "data" | "qa";
+export type TaskEffort = "XS" | "S" | "M" | "L" | "XL";
 
-interface Task {
+export interface Task {
   id: string;
   proposal_id: string;
   parent_task_id: string | null;
@@ -1307,10 +1543,10 @@ interface Task {
   estimated_effort: TaskEffort | null;
   dependencies: string[];
   sort_order: number;
-  subtasks: Task[];  // nested children
+  subtasks: Task[];
 }
 
-interface TaskTree {
+export interface TaskTree {
   proposal_id: string;
   feature_name: string;
   backend: Task[];
@@ -1320,18 +1556,17 @@ interface TaskTree {
   total_tasks: number;
 }
 
-// ── Roadmap ──
+// ── Roadmap (Extended) ──
 
-interface PriorityScore {
+export interface PriorityScore {
   frequency_score: number;
   severity_score: number;
   strategic_weight: number;
   effort_estimate: number;
   final_score: number;
-  score_breakdown: ScoreBreakdown;
 }
 
-interface ScoreBreakdown {
+export interface ScoreBreakdown {
   formula: string;
   frequency: { value: number; explanation: string };
   severity: { value: number; distribution: Record<Severity, number> };
@@ -1339,212 +1574,261 @@ interface ScoreBreakdown {
   effort: { value: number; scope: ScopeEstimate };
   final: number;
 }
-
-interface RoadmapEntry {
-  rank: number;
-  proposal: FeatureProposal;
-  score: PriorityScore;
-  cluster_label: string;
-}
-
-interface RoadmapResponse {
-  proposals: RoadmapEntry[];
-  total_proposals: number;
-  last_clustered_at: string | null;
-}
-
-// ── Jobs ──
-
-type JobType = 'extract_problems' | 'cluster' | 'generate_proposal' | 'generate_tasks';
-type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
-
-interface Job {
-  id: string;
-  job_type: JobType;
-  status: JobStatus;
-  error_message: string | null;
-  token_usage: TokenUsage | null;
-  started_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-}
-
-interface TokenUsage {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_cost: number;
-}
-
-// ── Filters ──
-
-interface EvidenceFilters {
-  source_type?: SourceType;
-  persona?: string;
-  segment?: string;
-  page?: number;
-  per_page?: number;
-}
-
-interface ProblemFilters {
-  persona?: string;
-  severity?: Severity;
-  tags?: string[];
-  source_type?: SourceType;
-  search?: string;
-  page?: number;
-  per_page?: number;
-}
-
-interface ProposalFilters {
-  status?: ProposalStatus;
-}
-
-interface RoadmapFilters {
-  persona?: string;
-  segment?: string;
-  tag?: string;
-  status?: ProposalStatus;
-}
-
-interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  per_page: number;
-  total_pages: number;
-}
 ```
 
 ---
 
-## Development Phases
+## 9. Technical Implementation Strategy
 
-### Phase 1: Evidence + Problems UI (Weeks 1-3)
+### Framework & Stack
 
-**Goal:** Upload transcripts and view extracted problems.
+| Layer | Technology | Version | Status |
+|---|---|---|---|
+| **Framework** | Next.js (App Router) | 16.1.6 | Installed |
+| **Language** | TypeScript (strict) | 5.x | Configured |
+| **Components** | shadcn/ui (Radix primitives) | Latest | Installed |
+| **Styling** | Tailwind CSS | 3.x | Configured |
+| **State (local)** | Zustand | 5.x | Installed |
+| **Data fetching** | TanStack React Query | 5.x | Installed (not yet used) |
+| **Tables** | TanStack React Table | 8.x | Installed (not yet used) |
+| **Charts** | Recharts | 3.x | Installed (not yet used) |
+| **Forms** | React Hook Form + Zod | 7.x + 4.x | Installed (not yet used) |
+| **Drag & Drop** | react-dropzone | 14.x | Installed (not yet used) |
+| **Toasts** | Sonner | 2.x | Installed (not yet used) |
+| **Animation** | Framer Motion | 11.x | Installed, used in PipelineIndicator |
+| **Icons** | Lucide React | Latest | Installed, used throughout |
 
-| Week | Deliverable |
-|------|------------|
-| 1 | PM layout shell: sidebar, pipeline indicator, routing structure |
-| 1 | Evidence upload modal: drag-drop, paste text, metadata form |
-| 2 | Evidence list page: table with sorting, status indicators |
-| 2 | Evidence detail page: raw text view, chunk boundaries |
-| 3 | Problems table: filterable, sortable, expandable rows |
-| 3 | Job progress component: polling, toasts, status badges |
+### Component System
 
-**Exit Criteria:**
-- Upload a transcript → see it in list → extraction job runs → problems appear in table
-- Filter problems by severity, persona, tags
-- Expand problem rows to see full quotes with source attribution
+- **Base layer:** shadcn/ui provides accessible, unstyled primitives (Button, Dialog, Tabs, etc.). These are in `components/ui/`.
+- **PM layer:** Domain-specific components compose shadcn primitives with PM business logic. These are in `components/pm/`.
+- **No component duplication:** If a shadcn component does the job (Button, Badge, Card), use it directly with Tailwind class overrides. Only create a PM-specific wrapper when the component needs PM domain logic (e.g., `SeverityBadge` wraps `Badge` with severity → color mapping).
 
-**Dependencies:** Backend Phase 1 (Evidence + Extraction services)
+### Theming Strategy
 
-### Phase 2: Clusters + Proposals (Weeks 4-6)
+- **Light mode only** for the PM pipeline. The `.pm-root` class overrides CSS custom properties from the dark-mode root. This is intentional: PM pipeline is a daytime productivity tool with warm, paper-like tones.
+- The existing dark-mode root layout (`<html className="dark">`) is preserved for the non-PM workspace (canvas, chat). The PM layout wraps children in `.pm-root` which flips all HSL variables to light values.
+- **No dark mode toggle** for PM pipeline. Complexity not justified for V1.
 
-**Goal:** See grouped pain themes and generate feature proposals.
+### Performance Optimization
 
-| Week | Deliverable |
-|------|------------|
-| 4 | Cluster grid page: cards with mini severity chart, sorted by count |
-| 4 | Cluster detail page: summary, quotes list, severity/persona charts |
-| 5 | Proposal detail page: full spec with citation links |
-| 5 | Citation interaction: hover preview, click to navigate to source |
-| 6 | Proposal editing: inline editable fields, approve/reject actions |
-| 6 | Proposal list page: status badges, filters |
+| Area | Strategy |
+|---|---|
+| **Bundle size** | Tree-shake Lucide icons (named imports only). Tree-shake Recharts (import only `BarChart`, not all). Avoid importing full `lodash` — use native methods. |
+| **Images** | No images in PM pipeline. Data-driven UI only. |
+| **Server Components** | All list and detail pages are Server Components (`async function Page()`). This means initial HTML includes data — no client-side loading spinner on first paint. |
+| **Client Components** | Only interactive elements (`"use client"`): filter bar, pipeline indicator, job progress, forms, expandable rows, sliders. |
+| **Code splitting** | Next.js App Router handles this automatically. Each page is lazy-loaded. |
+| **Font loading** | IBM Plex Sans and Fraunces loaded via `next/font/google` with `display: swap`. Already implemented. |
+| **API proxy** | Next.js rewrites `/api/v1/*` to backend. Avoids CORS and reduces client-side complexity. |
+| **Caching** | TanStack Query `staleTime: 30s`. Server Component fetches use `cache: "no-store"` (pipeline data changes frequently). |
+| **Prefetching** | Next.js `<Link>` automatically prefetches linked pages on hover. |
 
-**Exit Criteria:**
-- Click "Run Clustering" → clusters appear with labeled cards
-- Click cluster → see detail with quotes → "Generate Proposal" → proposal appears
-- Citation links in proposals navigate to source problems
-- Approve/reject proposals updates their status
+### Backend Integration
 
-**Dependencies:** Backend Phase 2 (Clustering + Proposal services)
+```
+Frontend (Next.js)                    Backend (FastAPI)
+─────────────────                    ──────────────────
+Browser → /api/v1/*  ──rewrite──→    localhost:8000/api/v1/*
+SSR     → http://localhost:8000/api/v1/*  (direct, skips rewrite)
 
-### Phase 3: Tasks + Roadmap (Weeks 7-9)
+next.config.js:
+{
+  async rewrites() {
+    return [
+      { source: '/api/:path*', destination: 'http://localhost:8000/api/:path*' }
+    ];
+  }
+}
+```
 
-**Goal:** Complete pipeline from proposals to prioritized roadmap.
-
-| Week | Deliverable |
-|------|------------|
-| 7 | Task tree page: category tabs, collapsible hierarchy |
-| 7 | Acceptance criteria display, effort badges, dependency indicators |
-| 8 | Task export: copy as markdown, download as JSON |
-| 8 | Roadmap page: ranked table with score breakdown |
-| 9 | Score breakdown component: expandable, formula display |
-| 9 | Strategic weight slider: inline adjustment, recalculation |
-
-**Exit Criteria:**
-- Generate tasks from proposal → see structured tree with acceptance criteria
-- Export task tree as markdown (ready for Linear/GitHub import)
-- Roadmap shows ranked proposals with explainable scores
-- Adjusting strategic weight recalculates ranking
-
-**Dependencies:** Backend Phase 3 (Task Tree + Prioritization services)
-
-### Phase 4: Polish + Dashboard (Weeks 10-12)
-
-| Week | Deliverable |
-|------|------------|
-| 10 | Dashboard page: pipeline overview, stats cards, recent activity |
-| 10 | Settings page: API key config, prompt version selection |
-| 11 | Usage page: cost tracking, job history, token usage charts |
-| 11 | Similarity panel: side drawer on problems page |
-| 12 | Responsive refinements, loading skeletons, error boundaries |
-| 12 | End-to-end UX polish, keyboard navigation, accessibility audit |
-
-**Exit Criteria:**
-- Dashboard gives at-a-glance pipeline status
-- Cost tracking shows LLM usage per job and cumulative totals
-- All pages handle loading, empty, and error states gracefully
-- Full pipeline walkthrough works smoothly end-to-end
+All API calls go through `pmFetch()` / `pmFetchSafe()` which handle:
+- Auto-detecting server vs. client context for URL resolution
+- JSON Content-Type headers
+- Error extraction from response body
+- Type-safe response parsing
 
 ---
 
-## Integration with Existing Nexus Frontend
+## 10. Engagement Strategy
 
-The PM pipeline lives under `/pm/*` routes and uses a dedicated layout. It coexists with the existing Nexus workspace (canvas, chat, documents) without conflicts:
+### Onboarding Flow (First-Use Experience)
 
-```
-/                    → Landing page (existing)
-/workspace           → RAPTOR canvas workspace (existing)
-/documents           → Document management (existing)
-/pm                  → PM pipeline dashboard (NEW)
-/pm/evidence         → Evidence management (NEW)
-/pm/problems         → Problem analysis (NEW)
-/pm/clusters         → Pain clustering (NEW)
-/pm/proposals        → Feature proposals (NEW)
-/pm/roadmap          → Prioritized roadmap (NEW)
-```
+When a user first arrives at `/pm` with no evidence:
 
-**Shared infrastructure:**
-- shadcn/ui components (already installed)
-- Tailwind config (already configured)
-- Root layout + global styles
-- Utility functions (`lib/utils.ts`)
+1. **Dashboard** shows a single, prominent empty state:
+   ```
+   ┌─────────────────────────────────────────────────────┐
+   │                                                     │
+   │  📄  Start your product discovery pipeline          │
+   │                                                     │
+   │  Upload a customer interview, support ticket,       │
+   │  or sales note. Nexus will extract problems,        │
+   │  find patterns, and generate feature proposals.     │
+   │                                                     │
+   │  [Upload Your First Evidence →]                     │
+   │                                                     │
+   └─────────────────────────────────────────────────────┘
+   ```
 
-**Separate infrastructure:**
-- PM-specific API client (`lib/pm/api.ts`)
-- PM-specific Zustand store (`lib/pm/store.ts`)
-- PM-specific types (`lib/pm/types.ts`)
-- PM-specific layout + sidebar (`components/pm/layout/`)
+2. After upload and extraction, the **Problems page** shows a banner:
+   ```
+   ✅ 12 problems extracted from "Customer Interview - Acme Corp"
+   Next step: Upload more evidence, or cluster your problems → [Run Clustering]
+   ```
 
-This separation keeps the PM pipeline self-contained while leveraging the existing UI foundation.
+3. After clustering, the **Clusters page** shows:
+   ```
+   ✅ 4 clusters created from 47 problems.
+   Next step: Click a cluster to explore, then generate a feature proposal.
+   ```
+
+4. This pattern continues through the pipeline. Each page suggests the next action until the user reaches the roadmap.
+
+**Implementation:** `NextActionsPanel` component on the dashboard computes the suggested action based on pipeline counts. Individual pages show contextual banners via `EmptyState` or inline alert when the pipeline has a clear next step.
+
+### Progressive Disclosure
+
+- List pages show summary data (title, severity badge, count). Click to see detail.
+- Detail pages show structured sections. Each section is collapsed by default except the first. Click to expand.
+- Roadmap scores show a single number. Click to expand the full formula breakdown.
+- Task tree shows titles with effort badges. Click to expand description and acceptance criteria.
+
+### Tooltips
+
+- **Severity badges:** Tooltip on hover explains severity level: "Critical: Product is unusable for this use case."
+- **Pipeline status dots:** Tooltip shows count and "Click to view."
+- **Score formula:** Tooltip on the "Score" column header explains: "Priority score = (frequency × severity × weight) / effort."
+- **Citation links:** Tooltip on hover shows the quoted text preview (first 100 chars). Click to see full context.
+
+**Implementation:** Radix `Tooltip` (already configured with `TooltipProvider` in root layout, `delayDuration={0}`).
+
+### Subtle Delight Moments
+
+| Moment | Implementation |
+|---|---|
+| Pipeline step completes | Status dot transitions from gray → green with a brief scale-up pulse (1.2x → 1x, 300ms) |
+| Score recalculation | Final score number does a slight counter-roll animation (old number fades up, new number fades in from below) |
+| Job completes | Sonner toast slides in with a green check icon. Auto-dismisses after 5 seconds. |
+| Upload form drop | Dropzone border pulses blue once on successful file accept |
+| All pipeline steps complete | Dashboard shows a subtle confetti-like particle effect (10 small dots, once, 1 second). Intentionally understated. Optional — can be disabled in settings. |
+
+---
+
+## 11. Quality Bar
+
+### Measurable Standards
+
+| Metric | Target | Measurement |
+|---|---|---|
+| **Lighthouse Performance** | ≥ 90 | Chrome DevTools audit on all page routes |
+| **Lighthouse Accessibility** | ≥ 95 | Chrome DevTools audit |
+| **Lighthouse Best Practices** | ≥ 95 | Chrome DevTools audit |
+| **First Contentful Paint** | < 1.0s | On local dev; < 2.0s on deployed |
+| **Largest Contentful Paint** | < 1.5s | Server components render data without client waterfall |
+| **Cumulative Layout Shift** | < 0.05 | Skeletons match final layout dimensions |
+| **Animation Performance** | 60fps | All transitions use GPU-composited properties (transform, opacity). No layout thrashing during animation. |
+| **Mobile Responsiveness** | All pages usable at 375px width | Tables switch to stacked card layout. Sidebar hidden. |
+| **TypeScript Strict** | Zero `any` types in PM code | `strict: true` in tsconfig. No `@ts-ignore` in PM files. |
+| **Bundle Size (JS)** | < 200KB first-load JS per page | Next.js bundle analyzer |
+| **Build** | Zero warnings | `next build` completes cleanly |
+
+### Design Consistency Rules
+
+1. All border-radius values are multiples of 4px. Cards: 16px. Buttons: 12px. Badges: 9999px (pill). Inputs: 12px.
+2. All shadows use the same set: `shadow-none`, `shadow-sm` (hover), `shadow-md` (elevated cards). No custom shadows.
+3. All spacing uses the Tailwind scale. No `px-[17px]` arbitrary values except for the 28px grid background.
+4. All severity colors are used consistently across every page. Red = critical. Orange = high. Amber = medium. Green = low. Never mixed.
+5. All page headers use the same `PageHeader` component. No custom hero sections.
+6. All empty states use the same `EmptyState` component. Same icon size, same text hierarchy, same CTA button style.
+7. All tables use the same `DataTable` wrapper. Same row height, same header style, same pagination controls.
+
+---
+
+## 12. Development Phases
+
+### Phase 1: Foundation + Evidence + Problems (Weeks 1–3)
+
+**Goal:** Core infrastructure + upload + browse + extract pipeline.
+
+| Week | Deliverables |
+|---|---|
+| **1** | Install `sonner` toaster in PM layout. Create `EmptyState`, `SeverityBadge`, `StatusBadge`, `ScopeBadge`, `SkeletonTable` shared components. Update CSS variables to match new color spec. Add file dropzone to evidence upload (react-dropzone). |
+| **2** | Build `DataTable` wrapper (TanStack Table). Refactor Evidence list to use `DataTable` with sorting + pagination controls. Add evidence source type & persona filter dropdowns. Build `JobProgress` component with polling. |
+| **3** | Build `ProblemFilters` filter bar (persona, severity, tags, search). Refactor Problems table to use `DataTable` with expandable rows. Build `ProblemExpandedRow` with full quote + source link. Build `SimilarProblemsPanel` (Sheet). Wire `useFilterStore` to URL params. |
+
+**Exit Criteria:**
+- Upload a transcript (paste or drag-drop) → see it in evidence list → extraction job runs with visible progress → problems appear in filterable table
+- Expand problem row → see full quote with source attribution → click "View Similar" → side panel shows ranked similar problems
+- All loading states show skeletons. All empty states show CTA. All errors show toast + retry.
+
+---
+
+### Phase 2: Clusters + Proposals (Weeks 4–6)
+
+**Goal:** Clustering visualization + proposal generation + review workflow.
+
+| Week | Deliverables |
+|---|---|
+| **4** | Build `ClusterCard` with severity mini-bar and top quote. Build `ClusterGrid` (responsive). Add "Run Clustering" button with `JobProgress`. Build `SeverityChart` (Recharts horizontal bar chart). |
+| **5** | Build `ClusterDetailView` with severity chart, persona breakdown, full quote list, members table. Add "Generate Proposal" button with `JobProgress`. Build `ProposalList` with status badges and filters. |
+| **6** | Build `ProposalDetailView` — full spec rendering with user story, rationale, metrics table, risks table. Build `CitationLink` (clickable superscript → Sheet showing source). Build `ProposalActions` (approve/reject/regenerate) with confirmation dialogs. Build `ProposalEditor` for inline field editing. |
+
+**Exit Criteria:**
+- Click "Run Clustering" → job runs → cluster cards appear sorted by mention count with severity bars
+- Click cluster → see full detail with quotes → click "Generate Proposal" → proposal appears
+- Open proposal → see full spec with clickable citations → approve/reject proposal → status updates in list + roadmap
+- Edit proposal fields inline → save → changes persist
+
+---
+
+### Phase 3: Tasks + Roadmap (Weeks 7–9)
+
+**Goal:** Complete the pipeline — task generation and priority ranking.
+
+| Week | Deliverables |
+|---|---|
+| **7** | Build `TaskTree`, `TaskNode`, `TaskCategoryTabs` (Radix Tabs). Render collapsible tree with effort badges and acceptance criteria. Add "Generate Tasks" button on proposal detail. |
+| **8** | Build `TaskExport` — copy as structured markdown (clipboard API) + download as JSON (Blob). Build `RoadmapTable` — ranked list using `DataTable` with additional columns (rank, scope, status, score). |
+| **9** | Build `ScoreBreakdown` — expandable inline row with formula visualization + value bars. Build `WeightSlider` (Radix Slider) — adjusts strategic weight, recalculates score client-side, persists on release. Build `RoadmapFilters` — persona/segment/status dropdowns. |
+
+**Exit Criteria:**
+- From approved proposal, click "Generate Tasks" → task tree appears with Backend/Frontend/Data/QA tabs → each task expandable with acceptance criteria
+- Export task tree as markdown → paste into Linear/GitHub issue and formatting is correct
+- Roadmap shows all proposals ranked by score → expand score breakdown → adjust weight → ranking re-sorts
+- Full end-to-end pipeline: Upload → Extract → Cluster → Generate Proposal → Review → Approve → Generate Tasks → View Roadmap
+
+---
+
+### Phase 4: Polish + Settings + Dashboard (Weeks 10–12)
+
+| Week | Deliverables |
+|---|---|
+| **10** | Enhance Dashboard: add `NextActionsPanel` (computed suggestions), `RecentJobsList`, `ActiveJobsPanel` with live polling. First-use empty state with onboarding CTA. |
+| **11** | Build Settings page: API key config (masked input), model selector, chunk size/overlap, clustering threshold slider. Build Usage page: job history table with per-job cost breakdown. |
+| **12** | Keyboard shortcuts (`1`–`7` nav, `/` search, `j`/`k` row nav). Evidence detail tabs (raw text with chunk highlighting, extracted problems, processing history). Responsive breakpoints for tablet (collapsible sidebar). Accessibility audit against WCAG 2.1 AA. Loading skeleton refinement. Error boundary wrappers on all pages. |
+
+**Exit Criteria:**
+- Dashboard gives pipeline status at a glance with computed next-action suggestions
+- Settings page persists API config and extraction parameters
+- Usage page shows per-job and per-model cost breakdowns
+- All keyboard shortcuts functional. Tab navigation works for all interactive elements. Screen reader announcements for status changes.
+- Lighthouse scores meet targets: Performance ≥ 90, Accessibility ≥ 95
 
 ---
 
 ## Summary
 
-The frontend is a **six-stage pipeline visualizer + editor**:
+Nexus PM is a **six-stage pipeline tool** — not a dashboard, not an editor, not a project manager. Every design decision serves the pipeline:
 
 ```
-Upload → Browse Problems → Explore Clusters → Review Proposals → View Tasks → Rank Roadmap
+Upload Evidence → Extract Problems → Cluster Pains → Generate Proposals → Plan Tasks → Rank Roadmap
 ```
 
-Every stage:
-- **Shows provenance** (trace any claim back to a quote)
-- **Handles async** (LLM jobs with polling + progress)
-- **Supports filtering** (persona, severity, tags, source type)
-- **Favors density** (tables and cards over dashboards)
-- **Enables light editing** (modify AI output, don't author from scratch)
+**Every screen traces back to a quote.** Every quote traces back to a document. Every proposal traces back to a cluster of quotes. Every roadmap rank traces back to a formula the user can inspect and adjust.
 
-Build Phase 1 in parallel with backend Phase 1. Ship evidence upload + problem extraction first. Validate the UX. Then proceed.
+The visual identity is warm, confident, and data-dense: **Fraunces serif headings** for editorial authority, **IBM Plex Sans** for clinical precision, **teal blue** for trust, **amber yellow** for insight, and **warm ivory surfaces** that make the tool feel premium without being precious.
+
+The technical stack is proven: **Next.js App Router** with Server Components for fast initial render, **TanStack Query** for mutation management and job polling, **TanStack Table** for data-dense tables, **Recharts** for severity charts, and **shadcn/ui** for accessible primitives.
+
+Build Phase 1 in parallel with backend. Ship evidence upload + problem extraction first. Validate the UX. Then proceed.
