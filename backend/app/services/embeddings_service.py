@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import Iterable
 from uuid import UUID
 
 from sqlalchemy import select
@@ -10,10 +9,10 @@ from app.config import settings
 from app.llm.client import get_client
 from app.models.embeddings import ProblemEmbedding
 from app.models.problems import ProblemMention
+from app.utils.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
 MAX_CONCURRENCY = 4
-MAX_RETRIES = 3
 
 def _embedding_text(problem: ProblemMention) -> str:
     return f"{problem.problem_statement}\n\nQuote: {problem.quote_text}"
@@ -31,7 +30,7 @@ async def embed_problems(
     )
     if limit:
         query = query.limit(limit)
-    problems: Iterable[ProblemMention] = (await session.execute(query)).scalars().all()
+    problems: list[ProblemMention] = (await session.execute(query)).scalars().all()
 
     if not problems:
         return []
@@ -43,7 +42,9 @@ async def embed_problems(
         async with semaphore:
             text = _embedding_text(problem)
             try:
-                vector = await _call_with_retry(client.embed_text, text)
+                vector = await call_with_retry(
+                    client.embed_text, text, label="Embedding call"
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Embedding failed for problem %s: %s", problem.id, exc)
                 return None
@@ -64,16 +65,3 @@ async def embed_problems(
     session.add_all(embeddings)
     await session.commit()
     return [embedding.problem_id for embedding in embeddings]
-
-
-async def _call_with_retry(func, text: str) -> list[float]:
-    delay = 1.0
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            return await asyncio.to_thread(func, text)
-        except Exception as exc:  # noqa: BLE001
-            if attempt == MAX_RETRIES:
-                raise
-            logger.info("Embedding call failed (attempt %s): %s", attempt, exc)
-            await asyncio.sleep(delay)
-            delay *= 2

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +17,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Nexus Backend")
+
+def _get_cors_origins() -> list[str]:
+    """Return CORS origins from env var, falling back to localhost defaults."""
+    if settings.cors_origins:
+        return [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    return ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: ensure pgvector extension exists.
+
+    Note: Table creation is managed by Alembic migrations.
+    ``Base.metadata.create_all`` is intentionally NOT called here (O11)
+    to avoid dual-source schema drift.
+    """
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    logger.info("Database ready (pgvector extension verified)")
+    yield
+
+
+app = FastAPI(title="Nexus Backend", lifespan=lifespan)
 
 # Rate limiting (configurable via env)
 app.add_middleware(
@@ -27,27 +50,11 @@ app.add_middleware(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup() -> None:
-    """Ensure pgvector extension exists and tables are created."""
-    from app.database import Base  # noqa: F811
-    from app.models import (  # noqa: F401
-        Evidence, EvidenceChunk, ProblemMention, ProblemEmbedding,
-        ProblemCluster, ClusterMembership, FeatureProposal, ProposalCitation,
-    )
-
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables verified / created")
-
 
 app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
@@ -57,4 +64,14 @@ app.include_router(clusters_router.router, prefix="/api/v1", tags=["clusters"])
 
 @app.get("/api/v1/health")
 async def health_check() -> dict:
-    return {"status": "ok"}
+    """Health check with database connectivity verification."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {"status": "ok"}
+    except Exception:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "detail": "Database unreachable"},
+        )

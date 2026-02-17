@@ -73,16 +73,15 @@ async def find_similar_problems(
         select(ProblemMention, (1 - distance).label("similarity"))
         .join(ProblemEmbedding, ProblemMention.id == ProblemEmbedding.problem_id)
         .order_by(distance.asc())
-        .limit(limit)
     )
+    # M7 fix: apply min_score as SQL WHERE clause BEFORE LIMIT,
+    # so we don't lose qualifying results beyond the limit.
+    if min_score > 0:
+        query = query.where((1 - distance) >= min_score)
+    query = query.limit(limit)
 
     rows = (await session.execute(query)).all()
-
-    results = []
-    for problem, similarity in rows:
-        if similarity >= min_score:
-            results.append((problem, float(similarity)))
-    return results
+    return [(problem, float(similarity)) for problem, similarity in rows]
 
 
 async def get_problem_stats(

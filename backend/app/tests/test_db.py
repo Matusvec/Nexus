@@ -52,7 +52,7 @@ async def test_connection():
                 print(f"    - {t}")
 
             # 4. Row counts for key tables
-            for table in ["evidence", "evidence_chunks", "problem_mentions", "clusters", "feature_proposals", "tasks"]:
+            for table in ["evidence", "evidence_chunks", "problem_mentions", "problem_clusters", "feature_proposals"]:
                 if table in tables:
                     result = await conn.execute(text(f"SELECT COUNT(*) FROM {table}"))
                     count = result.scalar()

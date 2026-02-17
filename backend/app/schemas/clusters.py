@@ -14,10 +14,6 @@ class ClusterBase(BaseModel):
     tags: list[str] = []
 
 
-class ClusterCreate(ClusterBase):
-    pass
-
-
 class ClusterResponse(ClusterBase):
     id: UUID
     mention_count: int
@@ -84,3 +80,6 @@ class RoadmapItem(BaseModel):
 class RoadmapResponse(BaseModel):
     items: list[RoadmapItem]
     total: int
+    page: int
+    per_page: int
+    total_pages: int

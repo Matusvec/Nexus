@@ -7,6 +7,7 @@ from app.models.clusters import (
     ProblemCluster,
     ProposalCitation,
 )
+from app.models.jobs import Job, LLMCallLog
 
 __all__ = [
     "Evidence",
@@ -17,4 +18,6 @@ __all__ = [
     "ClusterMembership",
     "FeatureProposal",
     "ProposalCitation",
+    "Job",
+    "LLMCallLog",
 ]

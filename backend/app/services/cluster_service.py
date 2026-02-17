@@ -8,7 +8,7 @@ import logging
 from uuid import UUID
 
 import numpy as np
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -38,11 +38,21 @@ async def run_threshold_clustering(
 
     This is a Phase 2 placeholder — upgrade to HDBSCAN or similar later.
     """
+    # C1 fix: clear old clusters before re-run to prevent duplicates.
+    # FK CASCADE on ClusterMembership, FeatureProposal, and ProposalCitation
+    # will clean up related rows automatically.
+    old_count = (await session.execute(select(func.count(ProblemCluster.id)))).scalar() or 0
+    if old_count:
+        logger.info("Clearing %d existing clusters before re-clustering", old_count)
+        await session.execute(delete(ProblemCluster))
+        await session.flush()
+
+    # A4 fix: deterministic ordering for reproducible clustering
     rows = (
         await session.execute(
             select(ProblemEmbedding).options(
                 selectinload(ProblemEmbedding.problem)
-            )
+            ).order_by(ProblemEmbedding.created_at.asc())
         )
     ).scalars().all()
 
@@ -135,6 +145,18 @@ async def get_cluster_detail(
 
 # ── Proposals ───────────────────────────────────────────────────
 
+async def get_proposal_detail(
+    session: AsyncSession, proposal_id: UUID
+) -> FeatureProposal | None:
+    """Return a single proposal with its citations eagerly loaded."""
+    query = (
+        select(FeatureProposal)
+        .options(selectinload(FeatureProposal.citations))
+        .where(FeatureProposal.id == proposal_id)
+    )
+    return (await session.execute(query)).scalar_one_or_none()
+
+
 async def create_proposal(
     session: AsyncSession,
     cluster_id: UUID,
@@ -144,6 +166,13 @@ async def create_proposal(
     impact: str | None = None,
     effort: str | None = None,
 ) -> FeatureProposal:
+    # M2 fix: validate cluster_id exists before insert
+    cluster = await session.get(ProblemCluster, cluster_id)
+    if not cluster:
+        raise ValueError(f"Cluster {cluster_id} not found")
+    # A8 fix: warn if cluster has no members
+    if cluster.mention_count == 0:
+        logger.warning("Creating proposal for empty cluster %s (mention_count=0)", cluster_id)
     proposal = FeatureProposal(
         cluster_id=cluster_id,
         title=title,
@@ -163,6 +192,13 @@ async def add_citation(
     problem_id: UUID,
     relevance_note: str | None = None,
 ) -> ProposalCitation:
+    # M3 fix: validate FK targets exist before insert
+    proposal = await session.get(FeatureProposal, proposal_id)
+    if not proposal:
+        raise ValueError(f"Proposal {proposal_id} not found")
+    problem = await session.get(ProblemMention, problem_id)
+    if not problem:
+        raise ValueError(f"Problem mention {problem_id} not found")
     citation = ProposalCitation(
         proposal_id=proposal_id,
         problem_id=problem_id,
@@ -175,15 +211,22 @@ async def add_citation(
 
 async def get_roadmap(
     session: AsyncSession,
-) -> list[dict]:
-    """Return all proposals ordered by priority, joined with cluster info."""
+    page: int = 1,
+    per_page: int = 20,
+) -> tuple[list[dict], int]:
+    """Return paginated proposals ordered by priority, joined with cluster info."""
+    # A6 fix: add pagination to avoid unbounded result sets
+    total = (await session.execute(select(func.count(FeatureProposal.id)))).scalar() or 0
+
     query = (
         select(FeatureProposal, ProblemCluster.label, ProblemCluster.mention_count)
         .join(ProblemCluster, FeatureProposal.cluster_id == ProblemCluster.id)
         .order_by(FeatureProposal.priority_score.desc().nullslast())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
     )
     rows = (await session.execute(query)).all()
-    return [
+    items = [
         {
             "proposal": proposal,
             "cluster_label": label,
@@ -192,3 +235,4 @@ async def get_roadmap(
         }
         for proposal, label, count in rows
     ]
+    return items, total

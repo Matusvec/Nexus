@@ -82,9 +82,11 @@ def chunk_text(
             j += 1
 
         # Build the chunk
-        chunk_text_str = " ".join(s["text"] for s in chunk_sentences)
         start_offset = chunk_sentences[0]["start"]
         end_offset = chunk_sentences[-1]["end"]
+        # m7 fix: use original text slice for accurate chunk content
+        # instead of joining sentences (which may alter whitespace)
+        chunk_text_str = text[start_offset:end_offset]
 
         chunks.append({
             "index": chunk_index,

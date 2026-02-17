@@ -27,7 +27,7 @@ class ProblemCluster(Base):
         ARRAY(Text), server_default=text("ARRAY[]::text[]")
     )
     metadata_: Mapped[dict] = mapped_column(
-        "metadata", JSONB, server_default=text("'{}'::jsonb")
+        "metadata", JSONB, server_default=text("'{}'::jsonb")  # O2: reserved for extensibility
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -89,9 +89,9 @@ class FeatureProposal(Base):
     priority_score: Mapped[float | None] = mapped_column(Float)
     impact: Mapped[str | None] = mapped_column(Text)  # high/medium/low
     effort: Mapped[str | None] = mapped_column(Text)  # high/medium/low
-    version: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    version: Mapped[int] = mapped_column(Integer, server_default=text("1"))  # O1: placeholder for future proposal versioning
     metadata_: Mapped[dict] = mapped_column(
-        "metadata", JSONB, server_default=text("'{}'::jsonb")
+        "metadata", JSONB, server_default=text("'{}'::jsonb")  # O2: reserved for extensibility
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

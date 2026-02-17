@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # Auth — comma-separated API keys; empty = auth disabled (dev mode)
     api_keys: str = ""
 
+    # CORS — comma-separated origins; empty = localhost defaults
+    cors_origins: str = ""
+
     # Rate limiting
     rate_limit_requests: int = 60
     rate_limit_window: int = 60

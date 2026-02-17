@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -50,8 +51,42 @@ class LLMCallRecord:
         }
 
 
-# In-memory cost accumulator (replace with DB persistence in production)
+# In-memory cost accumulator (also persisted to DB via _persist_record)
 _call_log: list[LLMCallRecord] = []
+
+
+async def _persist_record(record: LLMCallRecord) -> None:
+    """Persist an LLM call record to the database (fire-and-forget)."""
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models.jobs import LLMCallLog
+
+        async with AsyncSessionLocal() as session:
+            row = LLMCallLog(
+                model=record.model,
+                operation=record.operation,
+                prompt_version=record.prompt_version,
+                input_tokens=record.input_tokens,
+                output_tokens=record.output_tokens,
+                latency_ms=record.latency_ms,
+                cost_usd=record.cost_usd,
+                error=record.error,
+            )
+            session.add(row)
+            await session.commit()
+    except Exception:  # noqa: BLE001
+        logger.debug("Failed to persist LLM call record to DB", exc_info=True)
+
+
+def _record_and_persist(record: LLMCallRecord) -> None:
+    """Append to in-memory log and schedule DB persistence."""
+    _call_log.append(record)
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_persist_record(record))
+    except RuntimeError:
+        # No running event loop (e.g. during tests) — skip DB persistence
+        pass
 
 
 def get_call_log() -> list[dict[str, Any]]:
@@ -118,7 +153,7 @@ class GeminiClient:
             record.cost_usd = _estimate_cost(
                 record.model, record.input_tokens, record.output_tokens
             )
-            _call_log.append(record)
+            _record_and_persist(record)
             logger.debug(
                 "LLM call: model=%s tokens_in=%d tokens_out=%d cost=$%.6f latency=%.0fms",
                 record.model, record.input_tokens, record.output_tokens,
@@ -128,7 +163,7 @@ class GeminiClient:
         except Exception as exc:
             record.latency_ms = (time.perf_counter() - start) * 1000
             record.error = str(exc)
-            _call_log.append(record)
+            _record_and_persist(record)
             raise
 
     def embed_text(self, text: str) -> list[float]:
@@ -148,7 +183,7 @@ class GeminiClient:
             record.cost_usd = _estimate_cost(
                 record.model, record.input_tokens, 0
             )
-            _call_log.append(record)
+            _record_and_persist(record)
 
             embedding = response.get("embedding")
             if not embedding:
@@ -157,7 +192,7 @@ class GeminiClient:
         except Exception as exc:
             record.latency_ms = (time.perf_counter() - start) * 1000
             record.error = str(exc)
-            _call_log.append(record)
+            _record_and_persist(record)
             raise
 
 

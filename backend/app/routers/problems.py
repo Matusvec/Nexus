@@ -1,3 +1,4 @@
+import asyncio
 import math
 from uuid import UUID
 
@@ -32,8 +33,6 @@ async def similar_problems_endpoint(
 ) -> SimilarProblemsResponse:
     """Embed the query text and perform kNN search against problem embeddings."""
     client = get_client()
-    import asyncio
-
     query_embedding = await asyncio.to_thread(client.embed_text, text)
 
     results = await find_similar_problems(

@@ -28,6 +28,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.rate = rate
         self.window = window
         self._buckets: dict[str, list[float]] = defaultdict(list)
+        self._last_prune: float = 0.0
+        self._prune_interval: float = 300.0  # prune stale IPs every 5 minutes
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -38,6 +40,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
+
+        # O10 fix: periodically prune stale IP buckets to prevent memory leak
+        if now - self._last_prune > self._prune_interval:
+            self._prune_stale_buckets(now)
 
         # Clean old entries
         bucket = self._buckets[client_ip]
@@ -65,3 +71,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             max(0, self.rate - len(bucket))
         )
         return response
+
+    def _prune_stale_buckets(self, now: float) -> None:
+        """Remove IP buckets that have no recent requests (O10 fix)."""
+        cutoff = now - self.window
+        stale_ips = [ip for ip, ts_list in self._buckets.items() if not ts_list or ts_list[-1] < cutoff]
+        for ip in stale_ips:
+            del self._buckets[ip]
+        if stale_ips:
+            logger.debug("Pruned %d stale rate-limit buckets", len(stale_ips))
+        self._last_prune = now

@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, selectinload
 
 from app.config import settings
 from app.models.evidence import Evidence, EvidenceChunk
@@ -84,6 +84,7 @@ async def list_evidence(
     query = (
         select(Evidence, chunk_count_subq.c.chunk_count)
         .outerjoin(chunk_count_subq, Evidence.id == chunk_count_subq.c.evidence_id)
+        .options(defer(Evidence.raw_text))  # O9: skip loading large text for list view
         .order_by(Evidence.created_at.desc())
         .offset((page - 1) * per_page)
         .limit(per_page)

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import text
@@ -11,6 +11,12 @@ from app.database import Base
 
 class ProblemMention(Base):
     __tablename__ = "problem_mentions"
+    __table_args__ = (
+        CheckConstraint(
+            "severity IN ('critical', 'high', 'medium', 'low')",
+            name="ck_problem_mentions_severity",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")

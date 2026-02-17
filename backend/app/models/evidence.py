@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import text
@@ -11,6 +11,12 @@ from app.database import Base
 
 class Evidence(Base):
     __tablename__ = "evidence"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('interview', 'support_ticket', 'sales_note', 'survey', 'other')",
+            name="ck_evidence_source_type",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
