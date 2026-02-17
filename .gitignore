@@ -59,6 +59,13 @@ chroma_db/
 *.swo
 *~
 
+# ===== Node =====
+node_modules/
+
+# ===== WSL venvs =====
+.wslvenv/
+backend/.wslvenv/
+
 # ===== OS =====
 .DS_Store
 Thumbs.db
