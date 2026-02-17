@@ -2,6 +2,7 @@
 
 Implements threshold-based clustering of problem embeddings and
 CRUD for feature proposals with citation provenance.
+Includes LLM-based cluster summarization (strategy Section D).
 """
 
 import logging
@@ -12,6 +13,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.llm.client import get_client
 from app.models.clusters import (
     ClusterMembership,
     FeatureProposal,
@@ -20,6 +22,7 @@ from app.models.clusters import (
 )
 from app.models.embeddings import ProblemEmbedding
 from app.models.problems import ProblemMention
+from app.utils.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -236,3 +239,82 @@ async def get_roadmap(
         for proposal, label, count in rows
     ]
     return items, total
+
+
+# ── Cluster summarization ───────────────────────────────────────
+
+async def summarize_cluster(
+    session: AsyncSession,
+    cluster_id: UUID,
+) -> ProblemCluster:
+    """Generate an LLM-based summary and label for a cluster (strategy Section D).
+
+    Loads member problem mentions, asks the LLM for a short label,
+    2-3 sentence summary, and top quotes, then updates the cluster row.
+    """
+    cluster = (
+        await session.execute(
+            select(ProblemCluster)
+            .options(selectinload(ProblemCluster.members))
+            .where(ProblemCluster.id == cluster_id)
+        )
+    ).scalar_one_or_none()
+
+    if not cluster:
+        raise ValueError(f"Cluster {cluster_id} not found")
+    if not cluster.members:
+        logger.warning("Cluster %s has no members — skipping summarization", cluster_id)
+        return cluster
+
+    # Load member problem mentions
+    member_ids = [m.problem_id for m in cluster.members]
+    members_q = select(ProblemMention).where(ProblemMention.id.in_(member_ids))
+    members = (await session.execute(members_q)).scalars().all()
+
+    formatted_mentions = "\n".join(
+        f"- [{m.severity}] {m.problem_statement}\n  Quote: \"{m.quote_text}\""
+        for m in members
+    )
+
+    prompt = (
+        "Given these customer problem mentions:\n"
+        f"{formatted_mentions}\n\n"
+        "Generate:\n"
+        "1. label: A short (3-8 word) actionable label for this pain cluster\n"
+        "2. summary: A 2-3 sentence summary of the core issue\n"
+        "3. top_quotes: The 3 most compelling direct quotes\n\n"
+        "Return valid JSON only:\n"
+        '{"label": "string", "summary": "string", "top_quotes": ["string"]}\n'
+    )
+
+    client = get_client()
+    raw = await call_with_retry(
+        client.generate_json, prompt, "summarize_cluster_v1",
+        label="Cluster summarization",
+    )
+
+    cluster.label = raw.get("label", cluster.label)
+    cluster.summary = raw.get("summary")
+
+    # Merge top quotes and tags into cluster tags for discoverability
+    top_quotes = raw.get("top_quotes", [])
+    if top_quotes:
+        cluster.metadata_ = {**(cluster.metadata_ or {}), "top_quotes": top_quotes}
+
+    await session.commit()
+    logger.info("Summarized cluster %s: '%s'", cluster_id, cluster.label)
+    return cluster
+
+
+async def summarize_all_clusters(session: AsyncSession) -> int:
+    """Summarize all clusters that lack a summary."""
+    query = select(ProblemCluster).where(ProblemCluster.summary.is_(None))
+    clusters = (await session.execute(query)).scalars().all()
+    count = 0
+    for cluster in clusters:
+        try:
+            await summarize_cluster(session, cluster.id)
+            count += 1
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to summarize cluster %s", cluster.id, exc_info=True)
+    return count

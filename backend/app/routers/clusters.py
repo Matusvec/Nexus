@@ -14,9 +14,11 @@ from app.schemas.clusters import (
     ProposalCreate,
     ProposalDetailResponse,
     ProposalResponse,
+    ProposalVersionResponse,
     RoadmapItem,
     RoadmapResponse,
 )
+from app.schemas.priority_scores import PriorityScoreResponse, StrategicWeightUpdate
 from app.services.cluster_service import (
     add_citation,
     create_proposal,
@@ -25,7 +27,14 @@ from app.services.cluster_service import (
     get_roadmap,
     list_clusters,
     run_threshold_clustering,
+    summarize_cluster,
 )
+from app.services.prioritization_service import (
+    score_all_proposals,
+    update_strategic_weight,
+)
+from app.services.proposal_service import generate_proposal_for_cluster
+from app.services.task_tree_service import generate_tasks_for_proposal
 
 router = APIRouter()
 
@@ -138,3 +147,70 @@ async def roadmap_endpoint(
         per_page=per_page,
         total_pages=max(1, math.ceil(total / per_page)),
     )
+
+
+# ── LLM-powered generation endpoints ────────────────────────
+
+@router.post("/clusters/{cluster_id}/summarize")
+async def summarize_cluster_endpoint(
+    cluster_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Generate an LLM-based summary for a cluster (strategy Section D)."""
+    try:
+        cluster = await summarize_cluster(session, cluster_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return {
+        "cluster_id": cluster.id,
+        "label": cluster.label,
+        "summary": cluster.summary,
+    }
+
+
+@router.post("/clusters/{cluster_id}/generate_proposal", response_model=ProposalResponse)
+async def generate_proposal_endpoint(
+    cluster_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> ProposalResponse:
+    """Generate a feature proposal from a cluster using LLM (strategy Section E)."""
+    try:
+        proposal = await generate_proposal_for_cluster(session, cluster_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return ProposalResponse.model_validate(proposal)
+
+
+@router.post("/proposals/{proposal_id}/generate_tasks")
+async def generate_tasks_endpoint(
+    proposal_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Generate a task tree for a proposal using LLM (strategy Section F)."""
+    try:
+        tasks = await generate_tasks_for_proposal(session, proposal_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return {"proposal_id": str(proposal_id), "tasks_created": len(tasks)}
+
+
+@router.post("/roadmap/score")
+async def score_all_endpoint(
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Recalculate priority scores for all proposals (strategy Section G)."""
+    scores = await score_all_proposals(session)
+    return {"scored_count": len(scores)}
+
+
+@router.patch("/roadmap/{proposal_id}/weight", response_model=PriorityScoreResponse)
+async def update_weight_endpoint(
+    proposal_id: UUID,
+    payload: StrategicWeightUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> PriorityScoreResponse:
+    """Adjust the strategic weight for a proposal and recalculate its score."""
+    score = await update_strategic_weight(session, proposal_id, payload.strategic_weight)
+    if not score:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    return PriorityScoreResponse.model_validate(score)

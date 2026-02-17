@@ -11,8 +11,11 @@ from app.models.jobs import Job, LLMCallLog
 from app.schemas.embeddings import EmbedProblemsRequest
 from app.schemas.jobs import JobResponse, JobStatusResponse
 from app.schemas.problems import ExtractProblemsRequest
+from app.schemas.tasks import GenerateTasksRequest
 from app.services.embeddings_service import embed_problems
 from app.services.extraction_service import extract_problems_for_evidence
+from app.services.proposal_service import generate_proposal_for_cluster
+from app.services.task_tree_service import generate_tasks_for_proposal
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -71,6 +74,40 @@ async def embed_problems_endpoint(
     return JobResponse(job_id=job_id, status="pending")
 
 
+@router.post(
+    "/jobs/generate_proposal",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def generate_proposal_job_endpoint(
+    cluster_id: UUID = Query(..., description="Cluster to generate proposal for"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    session: AsyncSession = Depends(get_session),
+) -> JobResponse:
+    """Trigger async proposal generation for a cluster (strategy Section E)."""
+    job_id = uuid4()
+    await _create_job(session, job_id, "generate_proposal")
+    background_tasks.add_task(_run_generate_proposal_job, job_id, cluster_id)
+    return JobResponse(job_id=job_id, status="pending")
+
+
+@router.post(
+    "/jobs/generate_tasks",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def generate_tasks_job_endpoint(
+    payload: GenerateTasksRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+) -> JobResponse:
+    """Trigger async task tree generation for a proposal (strategy Section F)."""
+    job_id = uuid4()
+    await _create_job(session, job_id, "generate_tasks")
+    background_tasks.add_task(_run_generate_tasks_job, job_id, payload.proposal_id)
+    return JobResponse(job_id=job_id, status="pending")
+
+
 @router.get("/jobs/{job_id}/status", response_model=JobStatusResponse)
 async def get_job_status(
     job_id: UUID,
@@ -126,6 +163,48 @@ async def _run_embed_job(job_id: UUID, limit: int | None) -> None:
             status="completed",
             finished_at=datetime.now(timezone.utc),
             result_count=len(embedded_ids),
+        )
+    except Exception as exc:  # noqa: BLE001
+        await _update_job(
+            job_id,
+            status="failed",
+            finished_at=datetime.now(timezone.utc),
+            error=str(exc),
+        )
+
+
+async def _run_generate_proposal_job(job_id: UUID, cluster_id: UUID) -> None:
+    """Background runner for LLM-based proposal generation."""
+    await _update_job(job_id, status="running", started_at=datetime.now(timezone.utc))
+    try:
+        async with AsyncSessionLocal() as session:
+            proposal = await generate_proposal_for_cluster(session, cluster_id)
+        await _update_job(
+            job_id,
+            status="completed",
+            finished_at=datetime.now(timezone.utc),
+            result_count=1,
+        )
+    except Exception as exc:  # noqa: BLE001
+        await _update_job(
+            job_id,
+            status="failed",
+            finished_at=datetime.now(timezone.utc),
+            error=str(exc),
+        )
+
+
+async def _run_generate_tasks_job(job_id: UUID, proposal_id: UUID) -> None:
+    """Background runner for LLM-based task tree generation."""
+    await _update_job(job_id, status="running", started_at=datetime.now(timezone.utc))
+    try:
+        async with AsyncSessionLocal() as session:
+            tasks = await generate_tasks_for_proposal(session, proposal_id)
+        await _update_job(
+            job_id,
+            status="completed",
+            finished_at=datetime.now(timezone.utc),
+            result_count=len(tasks),
         )
     except Exception as exc:  # noqa: BLE001
         await _update_job(

@@ -6,8 +6,11 @@ from app.models.clusters import (
     FeatureProposal,
     ProblemCluster,
     ProposalCitation,
+    ProposalVersion,
 )
 from app.models.jobs import Job, LLMCallLog
+from app.models.tasks import Task
+from app.models.priority_scores import PriorityScore
 
 __all__ = [
     "Evidence",
@@ -18,6 +21,9 @@ __all__ = [
     "ClusterMembership",
     "FeatureProposal",
     "ProposalCitation",
+    "ProposalVersion",
     "Job",
     "LLMCallLog",
+    "Task",
+    "PriorityScore",
 ]

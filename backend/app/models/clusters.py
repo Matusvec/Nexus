@@ -106,6 +106,29 @@ class FeatureProposal(Base):
     )
 
 
+class ProposalVersion(Base):
+    """Snapshot of a proposal at a specific version for auditability."""
+
+    __tablename__ = "proposal_versions"
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    proposal_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("feature_proposals.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    change_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    proposal = relationship("FeatureProposal")
+
+
 class ProposalCitation(Base):
     """Links a proposal back to the problem mentions that justify it."""
 
