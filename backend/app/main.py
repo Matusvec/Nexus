@@ -10,6 +10,7 @@ from app.database import engine
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import evidence, jobs, problems
 from app.routers import clusters as clusters_router
+from app.routers import tasks as tasks_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,6 +61,7 @@ app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
 app.include_router(problems.router, prefix="/api/v1", tags=["problems"])
 app.include_router(clusters_router.router, prefix="/api/v1", tags=["clusters"])
+app.include_router(tasks_router.router, prefix="/api/v1", tags=["tasks"])
 
 
 @app.get("/api/v1/health")

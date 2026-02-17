@@ -83,3 +83,14 @@ class RoadmapResponse(BaseModel):
     page: int
     per_page: int
     total_pages: int
+
+
+class ProposalVersionResponse(BaseModel):
+    id: UUID
+    proposal_id: UUID
+    version_number: int
+    snapshot: dict[str, Any]
+    change_reason: str | None = None
+    created_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)

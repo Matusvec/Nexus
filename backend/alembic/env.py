@@ -20,7 +20,11 @@ if config.config_file_name is not None:
 
 # Import all models so Alembic can detect them for autogenerate
 from app.database import Base  # noqa: E402
-from app.models import Evidence, EvidenceChunk, ProblemMention, ProblemEmbedding  # noqa: E402,F401
+from app.models import (  # noqa: E402,F401
+    Evidence, EvidenceChunk, ProblemMention, ProblemEmbedding,
+    ProblemCluster, ClusterMembership, FeatureProposal, ProposalCitation,
+    ProposalVersion, Job, LLMCallLog, Task, PriorityScore,
+)
 
 target_metadata = Base.metadata
 

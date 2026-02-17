@@ -14,6 +14,13 @@ from app.schemas.problems import (
     ProblemMentionListResponse,
     ProblemMentionResponse,
 )
+from app.schemas.tasks import (
+    TaskCreate,
+    TaskResponse,
+    TaskTreeResponse,
+    GenerateTasksRequest,
+)
+from app.schemas.priority_scores import PriorityScoreResponse, StrategicWeightUpdate
 
 __all__ = [
     "EmbedProblemsRequest",
@@ -30,4 +37,10 @@ __all__ = [
     "ProblemMentionCreate",
     "ProblemMentionListResponse",
     "ProblemMentionResponse",
+    "TaskCreate",
+    "TaskResponse",
+    "TaskTreeResponse",
+    "GenerateTasksRequest",
+    "PriorityScoreResponse",
+    "StrategicWeightUpdate",
 ]
