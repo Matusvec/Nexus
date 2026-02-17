@@ -289,7 +289,7 @@ async def summarize_cluster(
 
     client = get_client()
     raw = await call_with_retry(
-        client.generate_json, prompt,
+        client.generate_json, prompt, "summarize_cluster_v1",
         label="Cluster summarization",
     )
 

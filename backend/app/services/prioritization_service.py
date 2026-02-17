@@ -52,8 +52,8 @@ async def calculate_priority(
     total_weighted = sum(
         _SEVERITY_WEIGHTS.get(sev, 1) * cnt for sev, cnt in sev_rows
     )
-    total_count = sum(cnt for _, cnt in sev_rows) or 1
-    severity_score = total_weighted / total_count
+    total_count = sum(cnt for _, cnt in sev_rows)
+    severity_score = total_weighted / total_count if total_count > 0 else 1.0
 
     # 3. Strategic weight (default 1.0, PM can override via PATCH)
     strategic_weight = 1.0
