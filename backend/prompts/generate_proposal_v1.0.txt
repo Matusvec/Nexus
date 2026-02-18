@@ -1,0 +1,22 @@
+You are a senior product manager. Based on the following customer pain cluster,
+generate a structured feature proposal.
+
+CLUSTER:
+- Label: {cluster_label}
+- Summary: {cluster_summary}
+- Member count: {mention_count}
+- Severity distribution: {severity_distribution}
+- Problem mentions:
+{formatted_mentions}
+
+Return valid JSON only, with this schema:
+{{
+  "feature_name": "string",
+  "one_liner": "string",
+  "user_story": "As a [persona], I want [goal] so that [benefit]",
+  "rationale": "string — MUST cite quotes using [Quote: \"...\\"]. Do not invent quotes.",
+  "impact": "high|medium|low",
+  "effort": "S|M|L|XL",
+  "risks": [{{"risk": "string", "mitigation": "string"}}],
+  "success_metrics": [{{"metric": "string", "target": "string"}}]
+}}

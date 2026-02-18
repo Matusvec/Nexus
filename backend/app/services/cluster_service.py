@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.llm.client import get_client
+from app.llm.prompts import get_prompt, get_prompt_version
 from app.models.clusters import (
     ClusterMembership,
     FeatureProposal,
@@ -304,20 +305,25 @@ async def summarize_cluster(
         for m in members
     )
 
-    prompt = (
-        "Given these customer problem mentions:\n"
-        f"{formatted_mentions}\n\n"
-        "Generate:\n"
-        "1. label: A short (3-8 word) actionable label for this pain cluster\n"
-        "2. summary: A 2-3 sentence summary of the core issue\n"
-        "3. top_quotes: The 3 most compelling direct quotes\n\n"
-        "Return valid JSON only:\n"
-        '{"label": "string", "summary": "string", "top_quotes": ["string"]}\n'
-    )
+    try:
+        template = get_prompt("summarize_cluster")
+        prompt = template.format(formatted_mentions=formatted_mentions)
+    except ValueError:
+        prompt = (
+            "Given these customer problem mentions:\n"
+            f"{formatted_mentions}\n\n"
+            "Generate:\n"
+            "1. label: A short (3-8 word) actionable label for this pain cluster\n"
+            "2. summary: A 2-3 sentence summary of the core issue\n"
+            "3. top_quotes: The 3 most compelling direct quotes\n\n"
+            "Return valid JSON only:\n"
+            '{"label": "string", "summary": "string", "top_quotes": ["string"]}\n'
+        )
 
+    prompt_version = get_prompt_version("summarize_cluster")
     client = get_client()
     raw = await call_with_retry(
-        client.generate_json, prompt, "summarize_cluster_v1",
+        client.generate_json, prompt, prompt_version,
         label="Cluster summarization",
     )
 

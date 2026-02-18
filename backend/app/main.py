@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -57,11 +57,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
-app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
-app.include_router(problems.router, prefix="/api/v1", tags=["problems"])
-app.include_router(clusters_router.router, prefix="/api/v1", tags=["clusters"])
-app.include_router(tasks_router.router, prefix="/api/v1", tags=["tasks"])
+from app.middleware.auth import verify_api_key
+
+auth_dep = [Depends(verify_api_key)]
+app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"], dependencies=auth_dep)
+app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"], dependencies=auth_dep)
+app.include_router(problems.router, prefix="/api/v1", tags=["problems"], dependencies=auth_dep)
+app.include_router(clusters_router.router, prefix="/api/v1", tags=["clusters"], dependencies=auth_dep)
+app.include_router(tasks_router.router, prefix="/api/v1", tags=["tasks"], dependencies=auth_dep)
 
 
 @app.get("/api/v1/health")

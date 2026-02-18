@@ -12,12 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.llm.client import get_client
+from app.llm.prompts import get_prompt_version
 from app.models.clusters import FeatureProposal
 from app.models.tasks import Task
 from app.utils.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "generate_tasks_v1"
 
 
 def _build_task_prompt(proposal: FeatureProposal) -> str:
@@ -80,8 +80,9 @@ async def generate_tasks_for_proposal(
     # Generate tasks via LLM
     client = get_client()
     prompt = _build_task_prompt(proposal)
+    prompt_version = get_prompt_version("generate_tasks")
     raw = await call_with_retry(
-        client.generate_json, prompt, PROMPT_VERSION,
+        client.generate_json, prompt, prompt_version,
         label="Task tree generation",
     )
 
@@ -107,7 +108,7 @@ async def generate_tasks_for_proposal(
             acceptance_criteria=raw_task.get("acceptance_criteria", []),
             estimated_effort=raw_task.get("estimated_effort"),
             sort_order=sort_order,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=prompt_version,
         )
         session.add(task)
         await session.flush()
@@ -125,7 +126,7 @@ async def generate_tasks_for_proposal(
                 acceptance_criteria=sub.get("acceptance_criteria", []),
                 estimated_effort=sub.get("estimated_effort"),
                 sort_order=sort_order,
-                prompt_version=PROMPT_VERSION,
+                prompt_version=prompt_version,
             )
             session.add(subtask)
             created_tasks.append(subtask)

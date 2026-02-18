@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.llm.client import get_client
+from app.llm.prompts import get_prompt, get_prompt_version
 from app.models.clusters import (
     ClusterMembership,
     FeatureProposal,
@@ -22,10 +23,10 @@ from app.models.clusters import (
 )
 from app.models.problems import ProblemMention
 from app.schemas.problems import ProblemMentionCreate
+from app.utils.citations import verify_rationale_citations
 from app.utils.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "generate_proposal_v1"
 
 
 def _build_proposal_prompt(
@@ -116,10 +117,19 @@ async def generate_proposal_for_cluster(
     # Generate proposal via LLM
     client = get_client()
     prompt = _build_proposal_prompt(cluster, list(members))
+    prompt_version = get_prompt_version("generate_proposal")
     raw = await call_with_retry(
-        client.generate_json, prompt, PROMPT_VERSION,
+        client.generate_json, prompt, prompt_version,
         label="Proposal generation",
     )
+
+    # Verify citations in the generated rationale against actual member quotes
+    member_quotes = [m.quote_text for m in members]
+    raw_description = raw.get("rationale", "")
+    cleaned_description, verified = verify_rationale_citations(
+        raw_description, member_quotes, threshold=0.85
+    )
+    raw["rationale"] = cleaned_description
 
     # Create or update proposal
     if existing_proposal:

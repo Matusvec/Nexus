@@ -1,0 +1,38 @@
+You are a senior tech lead. Convert this feature proposal into an
+implementation task tree.
+
+PROPOSAL:
+- Title: {proposal_title}
+- Description: {proposal_description}
+- Impact: {proposal_impact}
+- Effort: {proposal_effort}
+- User Story: {user_story}
+- One-liner: {one_liner}
+
+Generate a hierarchical task tree. Return valid JSON only:
+{{
+  "tasks": [
+    {{
+      "title": "string",
+      "description": "string",
+      "category": "backend|frontend|data|qa",
+      "acceptance_criteria": ["Given X, when Y, then Z"],
+      "estimated_effort": "XS|S|M|L|XL",
+      "subtasks": [
+        {{
+          "title": "string",
+          "description": "string",
+          "category": "backend|frontend|data|qa",
+          "acceptance_criteria": ["..."],
+          "estimated_effort": "XS|S|M|L|XL"
+        }}
+      ]
+    }}
+  ]
+}}
+
+Rules:
+- Tasks should be small enough for one developer
+- Every task must have at least one acceptance criterion
+- Data migrations come before backend tasks
+- QA tasks reference the features they validate
