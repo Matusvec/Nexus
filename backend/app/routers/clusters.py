@@ -383,7 +383,7 @@ async def regenerate_proposal_endpoint(
     """Regenerate a proposal using LLM, updating it in-place with version tracking."""
     try:
         proposal = await generate_proposal_for_cluster(
-            session, proposal_id=proposal_id, existing_proposal_id=proposal_id
+            session, existing_proposal_id=proposal_id
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
