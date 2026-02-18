@@ -116,6 +116,90 @@ async def run_threshold_clustering(
     return clusters
 
 
+async def run_hdbscan_clustering(
+    session: AsyncSession,
+    min_cluster_size: int = 3,
+    umap_components: int = 15,
+) -> list[ProblemCluster]:
+    """Density-based clustering using UMAP dimensionality reduction + HDBSCAN."""
+    import hdbscan
+    import umap
+
+    # 1. Load all embeddings
+    rows = (await session.execute(
+        select(ProblemEmbedding).options(selectinload(ProblemEmbedding.problem))
+    )).scalars().all()
+
+    if len(rows) < min_cluster_size:
+        raise ValueError(f"Need at least {min_cluster_size} embeddings, have {len(rows)}")
+
+    embeddings = np.array([r.embedding for r in rows], dtype=np.float32)
+
+    # 2. Dimensionality reduction
+    reducer = umap.UMAP(
+        n_components=min(umap_components, len(rows) - 1),
+        metric="cosine",
+        random_state=42,
+    )
+    reduced = reducer.fit_transform(embeddings)
+
+    # 3. HDBSCAN clustering
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        metric="euclidean",
+    )
+    labels = clusterer.fit_predict(reduced)
+
+    # 4. Clear previous clusters (preserve those with proposals)
+    await session.execute(delete(ClusterMembership))
+    await session.execute(delete(ProblemCluster).where(
+        ~ProblemCluster.id.in_(
+            select(FeatureProposal.cluster_id)
+        )
+    ))
+    await session.flush()
+
+    # 5. Create new clusters
+    created: list[ProblemCluster] = []
+    unique_labels = set(labels)
+    unique_labels.discard(-1)  # noise label
+
+    for cluster_label in unique_labels:
+        member_indices = [i for i, lbl in enumerate(labels) if lbl == cluster_label]
+        member_embeddings = embeddings[member_indices]
+        centroid = member_embeddings.mean(axis=0)
+
+        first_problem = rows[member_indices[0]].problem
+        cluster = ProblemCluster(
+            label=first_problem.problem_statement[:120] if first_problem else "Unnamed",
+            centroid=centroid.tolist(),
+            threshold=0.0,  # N/A for HDBSCAN
+            mention_count=len(member_indices),
+            metadata_={"algorithm": "hdbscan", "min_cluster_size": min_cluster_size},
+        )
+        session.add(cluster)
+        await session.flush()
+
+        for idx in member_indices:
+            norm_product = np.linalg.norm(embeddings[idx]) * np.linalg.norm(centroid) + 1e-9
+            membership = ClusterMembership(
+                cluster_id=cluster.id,
+                problem_id=rows[idx].problem_id,
+                similarity=float(np.dot(embeddings[idx], centroid) / norm_product),
+            )
+            session.add(membership)
+
+        created.append(cluster)
+
+    # 6. Handle noise points (label == -1)
+    noise_count = sum(1 for lbl in labels if lbl == -1)
+    logger.info("HDBSCAN: %d clusters, %d noise points out of %d total",
+                len(created), noise_count, len(rows))
+
+    await session.commit()
+    return created
+
+
 async def list_clusters(
     session: AsyncSession,
     page: int = 1,

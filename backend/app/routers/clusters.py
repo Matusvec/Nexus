@@ -29,6 +29,7 @@ from app.services.cluster_service import (
     get_roadmap,
     list_clusters,
     list_proposals,
+    run_hdbscan_clustering,
     run_threshold_clustering,
     summarize_cluster,
 )
@@ -45,14 +46,37 @@ router = APIRouter()
 @router.post("/clusters/run")
 async def run_clustering_endpoint(
     threshold: float = Query(0.75, ge=0.0, le=1.0),
+    algorithm: str = Query("auto"),  # "threshold", "hdbscan", "auto"
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Trigger threshold clustering on all problem embeddings.
+    """Trigger clustering on all problem embeddings.
 
-    Note: runs synchronously — returns 200 with results when done.
+    algorithm: 'threshold' (greedy), 'hdbscan' (density-based), or 'auto' (picks based on count).
     """
-    clusters = await run_threshold_clustering(session, threshold=threshold)
-    return {"clusters_created": len(clusters)}
+    if algorithm == "auto":
+        from sqlalchemy import func as sqlfunc
+        from app.models.embeddings import ProblemEmbedding
+        count = (await session.execute(
+            select(sqlfunc.count(ProblemEmbedding.id))
+        )).scalar() or 0
+        algorithm = "hdbscan" if count > 500 else "threshold"
+
+    if algorithm == "hdbscan":
+        clusters = await run_hdbscan_clustering(session)
+    else:
+        clusters = await run_threshold_clustering(session, threshold=threshold)
+
+    return {"clusters_created": len(clusters), "algorithm": algorithm}
+
+
+@router.post("/clusters/run_hdbscan")
+async def run_hdbscan_endpoint(
+    min_cluster_size: int = Query(3, ge=2, le=50),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Trigger HDBSCAN clustering on all problem embeddings."""
+    clusters = await run_hdbscan_clustering(session, min_cluster_size=min_cluster_size)
+    return {"clusters_created": len(clusters), "algorithm": "hdbscan"}
 
 
 @router.get("/clusters")
