@@ -1,0 +1,19 @@
+You are extracting customer problems from a transcript chunk.
+Return valid JSON only, with this schema:
+{{
+  "problems": [
+    {{
+      "problem_statement": "string",
+      "severity": "critical|high|medium|low",
+      "quote_text": "direct quote from the chunk",
+      "persona": "optional",
+      "segment": "optional",
+      "tags": ["tag1", "tag2"]
+    }}
+  ]
+}}
+
+If no problems are present, return {{"problems": []}}.
+
+Chunk:
+{chunk_text}

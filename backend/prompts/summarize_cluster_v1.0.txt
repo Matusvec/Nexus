@@ -1,0 +1,10 @@
+Given these customer problem mentions:
+{formatted_mentions}
+
+Generate:
+1. label: A short (3-8 word) actionable label for this pain cluster
+2. summary: A 2-3 sentence summary of the core issue
+3. top_quotes: The 3 most compelling direct quotes
+
+Return valid JSON only:
+{{"label": "string", "summary": "string", "top_quotes": ["string"]}}

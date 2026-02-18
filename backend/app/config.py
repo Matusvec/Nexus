@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.0-flash"
     gemini_embedding_model: str = "gemini-embedding-001"
 
+    # Multi-provider LLM support
+    llm_provider: str = "gemini"  # "gemini" | "openai"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+
     # Auth — comma-separated API keys; empty = auth disabled (dev mode)
     api_keys: str = ""
 

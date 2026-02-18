@@ -8,6 +8,7 @@ from typing import Any
 import google.generativeai as genai
 
 from app.config import settings
+from app.llm.base import LLMProvider
 
 logger = logging.getLogger(__name__)
 _client = None
@@ -123,10 +124,14 @@ def _estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1000
 
 
-class GeminiClient:
+class GeminiClient(LLMProvider):
     def __init__(self) -> None:
         genai.configure(api_key=settings.gemini_api_key)
         self.model = genai.GenerativeModel(settings.gemini_model)
+
+    @property
+    def model_name(self) -> str:
+        return settings.gemini_model
 
     def generate_json(
         self, prompt: str, prompt_version: str | None = None
@@ -209,9 +214,18 @@ def _parse_json_response(text: str) -> dict[str, Any]:
     return json.loads(cleaned[start : end + 1])
 
 
-def get_client() -> "GeminiClient":
+def get_client() -> LLMProvider:
+    """Get the configured LLM client (supports provider switching via config)."""
     global _client
     if _client is None:
-        _client = GeminiClient()
-        logger.info("Gemini client initialized")
+        provider = getattr(settings, "llm_provider", "gemini")
+        if provider == "openai":
+            from app.llm.openai_client import OpenAIClient
+            _client = OpenAIClient(
+                api_key=settings.openai_api_key,
+                model=getattr(settings, "openai_model", "gpt-4o"),
+            )
+        else:
+            _client = GeminiClient()
+        logger.info("LLM client initialized: %s", provider)
     return _client

@@ -279,3 +279,10 @@ async def llm_call_log(
         for r in rows
     ]
     return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+
+@router.get("/prompts")
+async def list_prompts_endpoint() -> dict:
+    """List all registered prompt templates and their versions."""
+    from app.llm.prompts import list_prompts
+    return {"prompts": list_prompts()}

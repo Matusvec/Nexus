@@ -7,36 +7,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from thefuzz import fuzz
 
 from app.llm.client import get_client
+from app.llm.prompts import get_prompt, get_prompt_version
 from app.models.evidence import Evidence, EvidenceChunk
 from app.models.problems import ProblemMention
 from app.schemas.problems import LLMProblemsResponse, ProblemMentionCreate
 from app.utils.retry import call_with_retry
 
-PROMPT_VERSION = "extract_problems_v1"
 logger = logging.getLogger(__name__)
 MAX_CONCURRENCY = 4
 FUZZY_MATCH_THRESHOLD = 70  # minimum partial_ratio score to accept a fuzzy match
 
 
 def _build_prompt(chunk_text: str) -> str:
-    return (
-        "You are extracting customer problems from a transcript chunk.\n"
-        "Return valid JSON only, with this schema:\n"
-        "{\n"
-        '  "problems": [\n'
-        "    {\n"
-        '      "problem_statement": "string",\n'
-        '      "severity": "critical|high|medium|low",\n'
-        '      "quote_text": "direct quote from the chunk",\n'
-        '      "persona": "optional",\n'
-        '      "segment": "optional",\n'
-        '      "tags": ["tag1", "tag2"]\n'
-        "    }\n"
-        "  ]\n"
-        "}\n\n"
-        "If no problems are present, return {\"problems\": []}.\n\n"
-        f"Chunk:\n{chunk_text}\n"
-    )
+    try:
+        template = get_prompt("extract_problems")
+        return template.format(chunk_text=chunk_text)
+    except ValueError:
+        # Fallback to inline prompt if template not found
+        return (
+            "You are extracting customer problems from a transcript chunk.\n"
+            "Return valid JSON only, with this schema:\n"
+            "{\n"
+            '  "problems": [\n'
+            "    {\n"
+            '      "problem_statement": "string",\n'
+            '      "severity": "critical|high|medium|low",\n'
+            '      "quote_text": "direct quote from the chunk",\n'
+            '      "persona": "optional",\n'
+            '      "segment": "optional",\n'
+            '      "tags": ["tag1", "tag2"]\n'
+            "    }\n"
+            "  ]\n"
+            "}\n\n"
+            "If no problems are present, return {\"problems\": []}.\n\n"
+            f"Chunk:\n{chunk_text}\n"
+        )
 
 
 def _find_quote_offsets(
@@ -231,6 +236,6 @@ def _build_problem_mention(
         quote_start=quote_start,
         quote_end=quote_end,
         tags=problem.tags or [],
-        prompt_version=PROMPT_VERSION,
+        prompt_version=get_prompt_version("extract_problems"),
         extraction_job_id=job_id,
     )

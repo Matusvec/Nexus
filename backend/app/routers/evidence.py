@@ -10,6 +10,7 @@ from app.schemas.evidence import (
     EvidenceDetailResponse,
     EvidenceListResponse,
     EvidenceResponse,
+    EvidenceUpdate,
     SourceType,
 )
 from app.services.evidence_service import (
@@ -17,6 +18,7 @@ from app.services.evidence_service import (
     delete_evidence,
     get_evidence_detail,
     list_evidence,
+    update_evidence,
 )
 
 router = APIRouter()
@@ -96,3 +98,25 @@ async def delete_evidence_endpoint(
     deleted = await delete_evidence(session, evidence_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Evidence not found")
+
+
+@router.put("/evidence/{evidence_id}", response_model=EvidenceResponse)
+async def update_evidence_endpoint(
+    evidence_id: UUID,
+    payload: EvidenceUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> EvidenceResponse:
+    evidence = await update_evidence(session, evidence_id, payload)
+    if not evidence:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+    chunk_count = len(evidence.chunks) if evidence.chunks else 0
+    return EvidenceResponse(
+        id=evidence.id,
+        title=evidence.title,
+        source_type=evidence.source_type,
+        persona=evidence.persona,
+        segment=evidence.segment,
+        source_date=evidence.source_date,
+        chunk_count=chunk_count,
+        created_at=evidence.created_at,
+    )

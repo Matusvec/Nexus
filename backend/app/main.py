@@ -1,16 +1,21 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import engine
+from app.database import engine, get_session
+from app.logging_config import setup_logging
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import evidence, jobs, problems
 from app.routers import clusters as clusters_router
 from app.routers import tasks as tasks_router
+
+# Initialize structured logging
+setup_logging()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,11 +62,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"])
-app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
-app.include_router(problems.router, prefix="/api/v1", tags=["problems"])
-app.include_router(clusters_router.router, prefix="/api/v1", tags=["clusters"])
-app.include_router(tasks_router.router, prefix="/api/v1", tags=["tasks"])
+from app.middleware.auth import verify_api_key
+
+auth_dep = [Depends(verify_api_key)]
+app.include_router(evidence.router, prefix="/api/v1", tags=["evidence"], dependencies=auth_dep)
+app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"], dependencies=auth_dep)
+app.include_router(problems.router, prefix="/api/v1", tags=["problems"], dependencies=auth_dep)
+app.include_router(clusters_router.router, prefix="/api/v1", tags=["clusters"], dependencies=auth_dep)
+app.include_router(tasks_router.router, prefix="/api/v1", tags=["tasks"], dependencies=auth_dep)
 
 
 @app.get("/api/v1/health")
@@ -77,3 +85,48 @@ async def health_check() -> dict:
             status_code=503,
             content={"status": "unhealthy", "detail": "Database unreachable"},
         )
+
+
+@app.get("/api/v1/metrics")
+async def metrics_endpoint(session: AsyncSession = Depends(get_session)) -> dict:
+    """Return operational stats for the Nexus backend."""
+    from app.models.evidence import Evidence
+    from app.models.problems import ProblemMention
+    from app.models.clusters import ProblemCluster, FeatureProposal
+    from app.models.jobs import Job, LLMCallLog
+
+    evidence_count = (await session.execute(select(func.count(Evidence.id)))).scalar()
+    problem_count = (await session.execute(select(func.count(ProblemMention.id)))).scalar()
+    cluster_count = (await session.execute(select(func.count(ProblemCluster.id)))).scalar()
+    proposal_count = (await session.execute(select(func.count(FeatureProposal.id)))).scalar()
+
+    # Job stats
+    job_stats = (await session.execute(
+        select(Job.status, func.count(Job.id)).group_by(Job.status)
+    )).all()
+
+    # LLM cost totals from DB
+    cost_totals = (await session.execute(
+        select(
+            func.count(LLMCallLog.id),
+            func.coalesce(func.sum(LLMCallLog.cost_usd), 0),
+            func.coalesce(func.sum(LLMCallLog.input_tokens), 0),
+            func.coalesce(func.sum(LLMCallLog.output_tokens), 0),
+        )
+    )).one()
+
+    return {
+        "entities": {
+            "evidence": evidence_count,
+            "problems": problem_count,
+            "clusters": cluster_count,
+            "proposals": proposal_count,
+        },
+        "jobs": {status: count for status, count in job_stats},
+        "llm": {
+            "total_calls": cost_totals[0],
+            "total_cost_usd": round(float(cost_totals[1]), 4),
+            "total_input_tokens": cost_totals[2],
+            "total_output_tokens": cost_totals[3],
+        },
+    }

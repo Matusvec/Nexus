@@ -23,5 +23,377 @@
         "quote_text": "when I filter by date range, it still shows results outside that range"
       }
     ]
+  },
+
+  {
+    "chunk_text": "Our billing system double-charged three enterprise clients last month. We had to issue manual refunds and two of those clients are now threatening to cancel their contracts.",
+    "expected_problems": [
+      {
+        "problem_statement": "Billing system double-charges enterprise clients",
+        "severity": "critical",
+        "quote_text": "Our billing system double-charged three enterprise clients last month"
+      }
+    ],
+    "notes": "Single clear problem — financial impact with explicit evidence"
+  },
+  {
+    "chunk_text": "The onboarding wizard crashes on step 3 every single time I try to add a second team member. I've tried three different browsers and it happens in all of them.",
+    "expected_problems": [
+      {
+        "problem_statement": "Onboarding wizard crashes on step 3 when adding a second team member",
+        "severity": "critical",
+        "quote_text": "The onboarding wizard crashes on step 3 every single time I try to add a second team member"
+      }
+    ],
+    "notes": "Single clear problem — reproducible crash blocking onboarding"
+  },
+  {
+    "chunk_text": "Whenever I try to upload a CSV file larger than 5 MB, the upload silently fails. There is no error message, no progress bar — it just returns to the upload screen as if nothing happened.",
+    "expected_problems": [
+      {
+        "problem_statement": "CSV uploads larger than 5 MB fail silently with no error feedback",
+        "severity": "high",
+        "quote_text": "Whenever I try to upload a CSV file larger than 5 MB, the upload silently fails"
+      }
+    ],
+    "notes": "Single clear problem — silent failure with no user feedback"
+  },
+
+  {
+    "chunk_text": "The dashboard takes forever to load, sometimes over 30 seconds. Once it does load, half the widgets show 'No data available' even though I know there is data. On top of that, the notification bell keeps showing a red dot for notifications I've already read, and the logout button occasionally doesn't respond at all.",
+    "expected_problems": [
+      {
+        "problem_statement": "Dashboard load time is excessively slow, sometimes exceeding 30 seconds",
+        "severity": "high",
+        "quote_text": "The dashboard takes forever to load, sometimes over 30 seconds"
+      },
+      {
+        "problem_statement": "Dashboard widgets incorrectly display 'No data available' when data exists",
+        "severity": "high",
+        "quote_text": "half the widgets show 'No data available' even though I know there is data"
+      },
+      {
+        "problem_statement": "Notification badge persists for already-read notifications",
+        "severity": "low",
+        "quote_text": "the notification bell keeps showing a red dot for notifications I've already read"
+      },
+      {
+        "problem_statement": "Logout button is intermittently unresponsive",
+        "severity": "medium",
+        "quote_text": "the logout button occasionally doesn't respond at all"
+      }
+    ],
+    "notes": "Multiple problems in one chunk — four distinct issues in a single paragraph"
+  },
+  {
+    "chunk_text": "We ran into several issues during migration. First, the data import tool rejected valid UTF-8 characters in customer names. Second, the mapping screen doesn't let you scroll horizontally so you can't see all the columns. Third, after import completes it says '0 records imported' even though the records are actually there in the database.",
+    "expected_problems": [
+      {
+        "problem_statement": "Data import tool incorrectly rejects valid UTF-8 characters in customer names",
+        "severity": "high",
+        "quote_text": "the data import tool rejected valid UTF-8 characters in customer names"
+      },
+      {
+        "problem_statement": "Mapping screen lacks horizontal scroll, hiding columns from view",
+        "severity": "medium",
+        "quote_text": "the mapping screen doesn't let you scroll horizontally so you can't see all the columns"
+      },
+      {
+        "problem_statement": "Import completion message shows 0 records imported despite successful import",
+        "severity": "medium",
+        "quote_text": "after import completes it says '0 records imported' even though the records are actually there in the database"
+      }
+    ],
+    "notes": "Multiple problems in one chunk — three migration-related issues"
+  },
+  {
+    "chunk_text": "The invoice PDF generator has two major problems: the company logo is stretched beyond recognition, and the tax calculation is wrong for customers in states with combined local and state tax. We've had clients question our invoices because the totals don't match.",
+    "expected_problems": [
+      {
+        "problem_statement": "Invoice PDF renders company logo with incorrect aspect ratio",
+        "severity": "low",
+        "quote_text": "the company logo is stretched beyond recognition"
+      },
+      {
+        "problem_statement": "Tax calculation is incorrect for combined local and state tax jurisdictions",
+        "severity": "critical",
+        "quote_text": "the tax calculation is wrong for customers in states with combined local and state tax"
+      }
+    ],
+    "notes": "Multiple problems in one chunk — cosmetic issue alongside a critical financial bug"
+  },
+
+  {
+    "chunk_text": "Honestly, the new release has been great. Our team adopted the workflow builder last month and it has saved us about 10 hours per week. The interface is clean and intuitive, and the documentation covered everything we needed.",
+    "expected_problems": [],
+    "notes": "No problems — purely positive feedback, should return empty array"
+  },
+  {
+    "chunk_text": "We evaluated four vendors and yours was the clear winner. Pricing was transparent, the trial was easy to set up, and your support team responded within an hour every time we had a question.",
+    "expected_problems": [],
+    "notes": "No problems — positive vendor evaluation, no issues mentioned"
+  },
+  {
+    "chunk_text": "Our Q3 usage statistics show 14,000 active users across 38 departments. Average session duration is 22 minutes. The platform is being used primarily for project tracking and resource allocation.",
+    "expected_problems": [],
+    "notes": "No problems — neutral factual usage statistics with no complaints"
+  },
+  {
+    "chunk_text": "Thanks for the update. We received the patch notes and have deployed version 4.2.1 to our staging environment. Everything looks good so far.",
+    "expected_problems": [],
+    "notes": "No problems — neutral operational update with no issues"
+  },
+
+  {
+    "chunk_text": "The mobile app is a bit sluggish at times, especially in the morning when a lot of people are logging in. It's not terrible but it can be annoying when you're trying to quickly check something before a meeting.",
+    "expected_problems": [
+      {
+        "problem_statement": "Mobile app experiences performance degradation during peak morning usage",
+        "severity": "low",
+        "quote_text": "The mobile app is a bit sluggish at times, especially in the morning when a lot of people are logging in"
+      }
+    ],
+    "notes": "Ambiguous severity — user downplays impact but describes real performance issue"
+  },
+  {
+    "chunk_text": "Sometimes the email notifications arrive a few hours late. It hasn't caused any real problems yet, but I worry that if an urgent alert comes in, we might miss our SLA window because of the delay.",
+    "expected_problems": [
+      {
+        "problem_statement": "Email notifications are delivered with multi-hour delays",
+        "severity": "medium",
+        "quote_text": "Sometimes the email notifications arrive a few hours late"
+      }
+    ],
+    "notes": "Ambiguous severity — no harm yet but potential for critical SLA impact"
+  },
+  {
+    "chunk_text": "The chart colors in the analytics module are hard to distinguish if you're colorblind. I can usually figure it out by hovering, but it takes extra time. It's not a dealbreaker but it makes my day a little harder.",
+    "expected_problems": [
+      {
+        "problem_statement": "Analytics chart colors are not accessible for colorblind users",
+        "severity": "medium",
+        "quote_text": "The chart colors in the analytics module are hard to distinguish if you're colorblind"
+      }
+    ],
+    "notes": "Ambiguous severity — accessibility issue that user minimizes but affects daily work"
+  },
+  {
+    "chunk_text": "The password reset flow works, but the email takes anywhere from 1 to 20 minutes to arrive. Some users give up and call the help desk instead, which kind of defeats the purpose of self-service.",
+    "expected_problems": [
+      {
+        "problem_statement": "Password reset emails have highly variable delivery times, up to 20 minutes",
+        "severity": "medium",
+        "quote_text": "the email takes anywhere from 1 to 20 minutes to arrive"
+      }
+    ],
+    "notes": "Ambiguous severity — functional but poor experience driving users to support"
+  },
+
+  {
+    "chunk_text": "I wish there was a way to bulk-archive old projects. Right now I have to go into each project one by one and click archive, which takes forever when you have hundreds of them.",
+    "expected_problems": [
+      {
+        "problem_statement": "No bulk-archive feature for projects, requiring tedious one-by-one archival",
+        "severity": "medium",
+        "quote_text": "I wish there was a way to bulk-archive old projects"
+      }
+    ],
+    "notes": "Implicit problem — pain expressed through wishful language"
+  },
+  {
+    "chunk_text": "It would be really nice if the calendar view showed resource conflicts. Right now we just have to remember who is double-booked and manually fix it, which leads to a lot of scheduling mistakes.",
+    "expected_problems": [
+      {
+        "problem_statement": "Calendar view lacks resource conflict detection, causing scheduling errors",
+        "severity": "high",
+        "quote_text": "It would be really nice if the calendar view showed resource conflicts"
+      }
+    ],
+    "notes": "Implicit problem — 'it would be nice' framing masks a significant operational gap"
+  },
+  {
+    "chunk_text": "If only we could set different permission levels per folder. We end up giving people access to everything because the all-or-nothing model doesn't fit our team structure.",
+    "expected_problems": [
+      {
+        "problem_statement": "Permission model lacks granular folder-level access control",
+        "severity": "high",
+        "quote_text": "If only we could set different permission levels per folder"
+      }
+    ],
+    "notes": "Implicit problem — 'if only' phrasing reveals security/access control gap"
+  },
+
+  {
+    "chunk_text": "Our developers find the API rate limits too restrictive — they hit 429 errors during batch syncs. Meanwhile, the product managers say the Gantt chart is confusing because the dependency arrows overlap and you can't tell which task links to which. The sales team has a completely different complaint: the CRM integration drops contacts randomly and they lose track of deals.",
+    "expected_problems": [
+      {
+        "problem_statement": "API rate limits are too restrictive, causing 429 errors during batch operations",
+        "severity": "high",
+        "quote_text": "they hit 429 errors during batch syncs"
+      },
+      {
+        "problem_statement": "Gantt chart dependency arrows overlap, making task relationships unclear",
+        "severity": "medium",
+        "quote_text": "the dependency arrows overlap and you can't tell which task links to which"
+      },
+      {
+        "problem_statement": "CRM integration randomly drops contacts, causing lost deals",
+        "severity": "critical",
+        "quote_text": "the CRM integration drops contacts randomly and they lose track of deals"
+      }
+    ],
+    "notes": "Multi-persona — developers, product managers, and sales each report different issues"
+  },
+  {
+    "chunk_text": "The finance team says the reconciliation report doesn't balance when transactions span multiple currencies. Our compliance officers are frustrated because the audit log doesn't capture who approved each change. And the end users just want a simpler interface — they say there are too many clicks to do basic tasks.",
+    "expected_problems": [
+      {
+        "problem_statement": "Reconciliation report fails to balance for multi-currency transactions",
+        "severity": "critical",
+        "quote_text": "the reconciliation report doesn't balance when transactions span multiple currencies"
+      },
+      {
+        "problem_statement": "Audit log does not capture approval attribution for changes",
+        "severity": "high",
+        "quote_text": "the audit log doesn't capture who approved each change"
+      },
+      {
+        "problem_statement": "Interface requires too many clicks to complete basic tasks",
+        "severity": "medium",
+        "quote_text": "they say there are too many clicks to do basic tasks"
+      }
+    ],
+    "notes": "Multi-persona — finance, compliance, and end users each with distinct pain points"
+  },
+  {
+    "chunk_text": "Admins are complaining that the user provisioning via SCIM takes over 10 minutes to sync. The frontline support agents say the ticket merge feature sometimes duplicates the merged ticket instead of combining them. Managers want better reporting — they can't break down CSAT scores by agent or shift.",
+    "expected_problems": [
+      {
+        "problem_statement": "SCIM user provisioning sync takes over 10 minutes",
+        "severity": "high",
+        "quote_text": "the user provisioning via SCIM takes over 10 minutes to sync"
+      },
+      {
+        "problem_statement": "Ticket merge feature occasionally duplicates tickets instead of combining them",
+        "severity": "high",
+        "quote_text": "the ticket merge feature sometimes duplicates the merged ticket instead of combining them"
+      },
+      {
+        "problem_statement": "Reporting lacks ability to break down CSAT scores by agent or shift",
+        "severity": "medium",
+        "quote_text": "they can't break down CSAT scores by agent or shift"
+      }
+    ],
+    "notes": "Multi-persona — admins, support agents, and managers each with different issues"
+  },
+
+  {
+    "chunk_text": "The WebSocket connection drops whenever the JWT refresh overlaps with an in-flight GraphQL subscription. We see a 401 race condition in the middleware — the token rotation invalidates the old token before the new one propagates to the edge CDN cache layer.",
+    "expected_problems": [
+      {
+        "problem_statement": "WebSocket disconnects due to race condition between JWT refresh and active GraphQL subscriptions",
+        "severity": "critical",
+        "quote_text": "The WebSocket connection drops whenever the JWT refresh overlaps with an in-flight GraphQL subscription"
+      },
+      {
+        "problem_statement": "Token rotation causes 401 errors due to propagation delay to edge CDN cache",
+        "severity": "high",
+        "quote_text": "the token rotation invalidates the old token before the new one propagates to the edge CDN cache layer"
+      }
+    ],
+    "notes": "Technical jargon — dense authentication/networking terminology"
+  },
+  {
+    "chunk_text": "Our Kubernetes pods keep getting OOMKilled during peak traffic because the sidecar proxy's memory limits are set too low. The HPA scales the replicas but the resource requests don't account for the Envoy sidecar overhead, so new pods get scheduled on nodes that are already memory-constrained.",
+    "expected_problems": [
+      {
+        "problem_statement": "Sidecar proxy memory limits are configured too low, causing OOMKill during peak traffic",
+        "severity": "critical",
+        "quote_text": "Our Kubernetes pods keep getting OOMKilled during peak traffic because the sidecar proxy's memory limits are set too low"
+      },
+      {
+        "problem_statement": "HPA resource requests do not account for Envoy sidecar overhead, causing scheduling on memory-constrained nodes",
+        "severity": "high",
+        "quote_text": "the resource requests don't account for the Envoy sidecar overhead, so new pods get scheduled on nodes that are already memory-constrained"
+      }
+    ],
+    "notes": "Technical jargon — Kubernetes/infrastructure terminology"
+  },
+  {
+    "chunk_text": "The ETL pipeline's CDC connector loses its replication slot after a Postgres failover. The Debezium offset gets out of sync with the WAL LSN, so we end up with duplicate rows in the Snowflake staging tables until someone manually resets the connector.",
+    "expected_problems": [
+      {
+        "problem_statement": "CDC connector loses replication slot during Postgres failover, causing data duplication in downstream tables",
+        "severity": "critical",
+        "quote_text": "The ETL pipeline's CDC connector loses its replication slot after a Postgres failover"
+      }
+    ],
+    "notes": "Technical jargon — data engineering terminology with Debezium/Postgres specifics"
+  },
+
+  {
+    "chunk_text": "Login is broken.",
+    "expected_problems": [
+      {
+        "problem_statement": "Login functionality is broken",
+        "severity": "critical",
+        "quote_text": "Login is broken."
+      }
+    ],
+    "notes": "Edge case — very short chunk, minimal context"
+  },
+  {
+    "chunk_text": "¯\\_(ツ)_/¯ the app crashes whenever I paste emoji like 🔥🚀💀 into the notes field and hit save. Also names with accents like José or naïve cause the validator to reject the form.",
+    "expected_problems": [
+      {
+        "problem_statement": "App crashes when emoji characters are pasted into the notes field",
+        "severity": "high",
+        "quote_text": "the app crashes whenever I paste emoji like 🔥🚀💀 into the notes field and hit save"
+      },
+      {
+        "problem_statement": "Form validator incorrectly rejects names containing accented characters",
+        "severity": "high",
+        "quote_text": "names with accents like José or naïve cause the validator to reject the form"
+      }
+    ],
+    "notes": "Edge case — special characters including emoji, unicode, and kaomoji"
+  },
+  {
+    "chunk_text": "Can't save.",
+    "expected_problems": [
+      {
+        "problem_statement": "Save functionality is not working",
+        "severity": "high",
+        "quote_text": "Can't save."
+      }
+    ],
+    "notes": "Edge case — extremely short, two-word complaint"
+  },
+  {
+    "chunk_text": "Error: \"NullReferenceException at Line 412 in PaymentProcessor.cs\" — customer sees a white screen after clicking \"Pay Now\" on orders over $10,000. Affects roughly 15% of enterprise checkout sessions.",
+    "expected_problems": [
+      {
+        "problem_statement": "Payment processor throws NullReferenceException causing white screen on high-value orders",
+        "severity": "critical",
+        "quote_text": "customer sees a white screen after clicking \"Pay Now\" on orders over $10,000"
+      }
+    ],
+    "notes": "Edge case — contains code-style error text with special characters and quotes"
+  },
+  {
+    "chunk_text": "The\tpage\ttitle\thas\tweird\tspacing issues and the breadcrumb shows Home > > > Settings instead of the correct path.",
+    "expected_problems": [
+      {
+        "problem_statement": "Page title displays with abnormal spacing",
+        "severity": "low",
+        "quote_text": "The\tpage\ttitle\thas\tweird\tspacing issues"
+      },
+      {
+        "problem_statement": "Breadcrumb navigation shows empty path segments",
+        "severity": "low",
+        "quote_text": "the breadcrumb shows Home > > > Settings instead of the correct path"
+      }
+    ],
+    "notes": "Edge case — contains tab characters and special HTML-like characters in text"
   }
 ]

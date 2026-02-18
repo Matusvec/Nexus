@@ -16,9 +16,20 @@ alembic>=1.13.0
 google-generativeai>=0.4.0
 numpy>=1.26.0
 
+# ── Clustering / ML ────────────────────────────────────
+umap-learn>=0.5.5
+hdbscan>=0.8.33
+scikit-learn>=1.4.0
+
 # ── Utilities ────────────────────────────────────────────
 thefuzz>=0.22.1              # fuzzy string matching
 python-dotenv>=1.0.0         # .env loading fallback for pydantic-settings
 
+# ── Observability ───────────────────────────────────────
+structlog>=24.1.0
+
 # ── Provisioned (used in docker-compose, not yet in app code) ──
 redis>=5.0.0
+
+# ── Task Queue ──────────────────────────────────────────
+celery[redis]>=5.3.0

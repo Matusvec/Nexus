@@ -47,6 +47,18 @@ class EvidenceDetailResponse(EvidenceResponse):
     chunks: list[EvidenceChunkResponse] = []
 
 
+class EvidenceUpdate(BaseModel):
+    title: str | None = None
+    source_type: SourceType | None = None
+    persona: str | None = None
+    segment: str | None = None
+    source_date: date | None = None
+    metadata: dict | None = None
+    # NOTE: raw_text is NOT updatable — changing text would invalidate all
+    # chunks, problem mentions, embeddings, and clusters downstream.
+    # If text changes, delete + re-upload.
+
+
 class EvidenceListResponse(BaseModel):
     items: list[EvidenceResponse]
     total: int

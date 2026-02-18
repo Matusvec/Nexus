@@ -48,10 +48,19 @@ class ProposalCreate(ProposalBase):
     cluster_id: UUID
 
 
+class ProposalUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    impact: str | None = None    # high/medium/low
+    effort: str | None = None    # S/M/L/XL
+    metadata: dict | None = None
+
+
 class ProposalResponse(ProposalBase):
     id: UUID
     cluster_id: UUID
     version: int
+    status: str = "draft"
     created_at: datetime | None = None
     updated_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)

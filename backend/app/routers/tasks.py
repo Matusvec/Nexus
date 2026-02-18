@@ -6,9 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.models.tasks import Task
 from app.schemas.tasks import (
     TaskResponse,
     TaskTreeResponse,
+    TaskUpdate,
 )
 from app.services.task_tree_service import get_task_tree
 
@@ -38,3 +40,19 @@ async def get_tasks_endpoint(
         total_tasks=len(tasks),
         **grouped,
     )
+
+
+@router.patch("/tasks/{task_id}", response_model=TaskResponse)
+async def update_task_endpoint(
+    task_id: UUID,
+    payload: TaskUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> TaskResponse:
+    """Update a task (partial update)."""
+    task = await session.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    for field, value in payload.model_dump(exclude_none=True).items():
+        setattr(task, field, value)
+    await session.commit()
+    return TaskResponse.model_validate(task)
