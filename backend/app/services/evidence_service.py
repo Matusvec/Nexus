@@ -6,7 +6,7 @@ from sqlalchemy.orm import defer, selectinload
 
 from app.config import settings
 from app.models.evidence import Evidence, EvidenceChunk
-from app.schemas.evidence import EvidenceCreate
+from app.schemas.evidence import EvidenceCreate, EvidenceUpdate
 from app.utils.chunking import chunk_text
 
 
@@ -133,3 +133,19 @@ async def delete_evidence(
     await session.delete(evidence)
     await session.commit()
     return True
+
+
+async def update_evidence(
+    session: AsyncSession, evidence_id: UUID, payload: EvidenceUpdate
+) -> Evidence | None:
+    """Partially update evidence metadata. raw_text is NOT updatable."""
+    evidence = await session.get(Evidence, evidence_id)
+    if not evidence:
+        return None
+    for field, value in payload.model_dump(exclude_none=True).items():
+        if field == "metadata":
+            setattr(evidence, "metadata_", value)
+        else:
+            setattr(evidence, field, value)
+    await session.commit()
+    return evidence

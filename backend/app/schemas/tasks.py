@@ -21,6 +21,15 @@ class TaskCreate(TaskBase):
     sort_order: int = 0
 
 
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    category: str | None = None  # backend|frontend|data|qa
+    acceptance_criteria: list[str] | None = None
+    estimated_effort: str | None = None  # XS|S|M|L|XL
+    sort_order: int | None = None
+
+
 class TaskResponse(TaskBase):
     id: UUID
     proposal_id: UUID

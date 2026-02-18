@@ -241,6 +241,34 @@ async def get_roadmap(
     return items, total
 
 
+async def list_proposals(
+    session: AsyncSession,
+    page: int = 1,
+    per_page: int = 20,
+    status: str | None = None,
+) -> tuple[list[FeatureProposal], int]:
+    """Return paginated proposals with optional status filter."""
+    filters = []
+    if status:
+        filters.append(FeatureProposal.status == status)
+
+    count_q = select(func.count(FeatureProposal.id))
+    if filters:
+        count_q = count_q.where(*filters)
+    total = (await session.execute(count_q)).scalar() or 0
+
+    query = (
+        select(FeatureProposal)
+        .order_by(FeatureProposal.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    if filters:
+        query = query.where(*filters)
+    items = (await session.execute(query)).scalars().all()
+    return list(items), total
+
+
 # ── Cluster summarization ───────────────────────────────────────
 
 async def summarize_cluster(

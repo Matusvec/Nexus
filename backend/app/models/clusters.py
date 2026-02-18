@@ -90,6 +90,7 @@ class FeatureProposal(Base):
     impact: Mapped[str | None] = mapped_column(Text)  # high/medium/low
     effort: Mapped[str | None] = mapped_column(Text)  # high/medium/low
     version: Mapped[int] = mapped_column(Integer, server_default=text("1"))  # O1: placeholder for future proposal versioning
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"))
     metadata_: Mapped[dict] = mapped_column(
         "metadata", JSONB, server_default=text("'{}'::jsonb")  # O2: reserved for extensibility
     )
