@@ -25,5 +25,11 @@ scikit-learn>=1.4.0
 thefuzz>=0.22.1              # fuzzy string matching
 python-dotenv>=1.0.0         # .env loading fallback for pydantic-settings
 
+# ── Observability ───────────────────────────────────────
+structlog>=24.1.0
+
 # ── Provisioned (used in docker-compose, not yet in app code) ──
 redis>=5.0.0
+
+# ── Task Queue ──────────────────────────────────────────
+celery[redis]>=5.3.0

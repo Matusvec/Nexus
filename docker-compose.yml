@@ -58,5 +58,17 @@ services:
       timeout: 5s
       retries: 10
 
+  worker:
+    build: ./backend
+    command: celery -A app.worker worker --loglevel=info --concurrency=4
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://nexus:nexus@db:5432/nexus
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
 volumes:
   pgdata:
