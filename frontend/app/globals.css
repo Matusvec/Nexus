@@ -36,6 +36,116 @@
   }
 }
 
+/* Premium animation effects */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px) }
+  to { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateX(-16px) }
+  to { opacity: 1; transform: translateX(0) }
+}
+
+@keyframes fadeScaleIn {
+  from { opacity: 0; transform: scale(0.95) }
+  to { opacity: 1; transform: scale(1) }
+}
+
+@keyframes shimmer {
+  0% { opacity: 0; transform: translateY(4px) }
+  50% { opacity: 1; transform: translateY(0) }
+  100% { opacity: 0; transform: translateY(4px) }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1 }
+  50% { opacity: 0.5 }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 116, 144, 0.3) }
+  50% { box-shadow: 0 0 20px 4px rgba(14, 116, 144, 0.3) }
+}
+
+@keyframes shimmerGlow {
+  0% { box-shadow: 0 0 0 0 rgba(232, 140, 10, 0.3) }
+  50% { box-shadow: 0 0 20px 4px rgba(232, 140, 10, 0.3) }
+  100% { box-shadow: 0 0 0 0 rgba(232, 140, 10, 0.3) }
+}
+
+@keyframes floatUp {
+  from { opacity: 0; transform: translateY(12px) }
+  to { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes ripple {
+  0% { transform: scale(1) }
+  50% { transform: scale(1.05) }
+  100% { transform: scale(1) }
+}
+
+/* Animation utility classes */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-fade-slide-in {
+  animation: fadeSlideIn 0.3s ease-out forwards;
+}
+
+.animate-fade-scale-in {
+  animation: fadeScaleIn 0.3s ease-out forwards;
+}
+
+.animate shimmer {
+  animation: shimmer 0.6s ease-out forwards;
+}
+
+.animate-glow {
+  animation: glow 0.6s ease-out forwards;
+}
+
+.animate shimmerGlow {
+  animation: shimmerGlow 0.6s ease-out forwards;
+}
+
+.animate float-up {
+  animation: floatUp 0.3s ease-out forwards
+}
+
+.animate ripple {
+  animation: ripple 0.3s ease-out forwards
+}
+
+/* Premium card styles */
+.card-premium {
+  @apply bg-card border-border/50;
+  box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.08), 0 1px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.card-hover-premium:hover:hover:hover {
+  @apply bg-card scale-[1.02];
+  box-shadow: 0 8px 20px -1px rgba(14, 116, 144, 0.15), 0 2px 6px -1px rgba(14, 116, 144, 0.1);
+}
+
+/* Button hover premium */
+.btn-premium {
+  @apply bg-primary text-primary-foreground;
+  transition: all 0.2s ease-out;
+  transform: scale(1);
+}
+
+.btn-hover-premium:hover:hover:hover {
+  @apply bg-primary/90 scale-[1.02];
+}
+
+/* Input focus premium */
+.input-premium:focus:focusfocus {
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 4px rgba(14, 116, 144, 0.2);
+}
+
 /* PM pipeline theme overrides — Strategy Document §2 */
 .pm-root {
   /* Surface palette: warm off-white layered system */
