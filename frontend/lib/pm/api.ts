@@ -169,22 +169,22 @@ export const createProposal = (data: {
   });
 
 export const getProposalDetail = (id: string) =>
-  pmFetch<ProposalDetail>(`/feature_proposals/${id}`);
+  pmFetch<ProposalDetail>(`/proposals/${id}`);
 
 export const updateProposal = (id: string, data: Partial<Proposal>) =>
-  pmFetch<Proposal>(`/feature_proposals/${id}`, {
-    method: "PATCH",
+  pmFetch<Proposal>(`/proposals/${id}`, {
+    method: "PUT",
     body: JSON.stringify(data),
   });
 
 export const approveProposal = (id: string) =>
-  pmFetch<Proposal>(`/feature_proposals/${id}/approve`, { method: "POST" });
+  pmFetch<Proposal>(`/proposals/${id}/approve`, { method: "POST" });
 
 export const rejectProposal = (id: string) =>
-  pmFetch<Proposal>(`/feature_proposals/${id}/reject`, { method: "POST" });
+  pmFetch<Proposal>(`/proposals/${id}/reject`, { method: "POST" });
 
 export const regenerateProposal = (id: string) =>
-  pmFetch<JobResponse>(`/feature_proposals/${id}/regenerate`, { method: "POST" });
+  pmFetch<JobResponse>(`/proposals/${id}/regenerate`, { method: "POST" });
 
 // ── Roadmap ──
 
@@ -199,7 +199,7 @@ export const updateWeight = (proposalId: string, weight: number) =>
 // ── Tasks ──
 
 export const getTasks = (proposalId: string) =>
-  pmFetch<TaskTree>(`/feature_proposals/${proposalId}/tasks`);
+  pmFetch<TaskTree>(`/proposals/${proposalId}/tasks`);
 
 export const generateTasks = (proposalId: string) =>
   pmFetch<JobResponse>("/jobs/generate_tasks", {

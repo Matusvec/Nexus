@@ -20,11 +20,13 @@ bin-release/
 # ===== SECRETS & API KEYS - NEVER COMMIT =====
 /backend/.env
 /backend/.env.*
+!/backend/.env.example
 /backend/.env.local
 /frontend/.env
 /frontend/.env.*
 .env
 .env.*
+!.env.example
 .env.local
 .env.*.local
 *.env

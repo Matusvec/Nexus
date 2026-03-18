@@ -43,7 +43,7 @@ from app.services.task_tree_service import generate_tasks_for_proposal
 router = APIRouter()
 
 
-@router.post("/clusters/run")
+@router.post("/clusters/run", status_code=200)
 async def run_clustering_endpoint(
     threshold: float = Query(0.75, ge=0.0, le=1.0),
     algorithm: str = Query("auto"),  # "threshold", "hdbscan", "auto"
@@ -69,7 +69,7 @@ async def run_clustering_endpoint(
     return {"clusters_created": len(clusters), "algorithm": algorithm}
 
 
-@router.post("/clusters/run_hdbscan")
+@router.post("/clusters/run_hdbscan", status_code=200)
 async def run_hdbscan_endpoint(
     min_cluster_size: int = Query(3, ge=2, le=50),
     session: AsyncSession = Depends(get_session),

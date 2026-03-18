@@ -168,11 +168,12 @@ export default async function PMDashboardPage() {
         <>
           {/* Stat cards */}
           <section className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-            {cards.map((card) => (
+            {cards.map((card, i) => (
               <Link
                 key={card.label}
                 href={card.href}
-                className="group rounded-2xl border border-border bg-card p-5 transition-shadow duration-200 hover:shadow-sm"
+                className="group rounded-2xl border border-border bg-card p-5 opacity-0 animate-fade-scale-in transition-shadow duration-200 hover:shadow-sm"
+                style={{ animationDelay: `${i * 0.06}s` }}
               >
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <card.icon className="h-4 w-4" strokeWidth={1.75} />

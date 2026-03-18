@@ -34,11 +34,11 @@ export function EmptyState({
         className
       )}
     >
-      <div className="animate-fade-in" style={{ animation-delay: "0s" }}>
+      <div className="animate-fade-in" style={{ animationDelay: "0s" }}>
         <Icon className="h-6 w-6 text-muted-foreground mb-3" strokeWidth={1.75} />
       </div>
-      <h3 className="text-base font-semibold text-foreground animate-fade-in" style={{ animation-delay: "0s" }}>{title}</h3>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground animate-fade-in" style={{ animation-delay: "0s" }}>
+      <h3 className="text-base font-semibold text-foreground animate-fade-in" style={{ animationDelay: "0.05s" }}>{title}</h3>
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: "0.1s" }}>
         {description}
       </p>
       {actionLabel && actionHref && (
@@ -63,4 +63,6 @@ export function EmptyState({
           {actionLabel} →
         </button>
       )}
-    )
+    </div>
+  );
+}

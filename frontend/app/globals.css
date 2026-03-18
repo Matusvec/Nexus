@@ -98,7 +98,7 @@
   animation: fadeScaleIn 0.3s ease-out forwards;
 }
 
-.animate shimmer {
+.animate-shimmer {
   animation: shimmer 0.6s ease-out forwards;
 }
 
@@ -106,16 +106,16 @@
   animation: glow 0.6s ease-out forwards;
 }
 
-.animate shimmerGlow {
+.animate-shimmerGlow {
   animation: shimmerGlow 0.6s ease-out forwards;
 }
 
-.animate float-up {
-  animation: floatUp 0.3s ease-out forwards
+.animate-float-up {
+  animation: floatUp 0.3s ease-out forwards;
 }
 
-.animate ripple {
-  animation: ripple 0.3s ease-out forwards
+.animate-ripple {
+  animation: ripple 0.3s ease-out forwards;
 }
 
 /* Premium card styles */
@@ -124,7 +124,7 @@
   box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.08), 0 1px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-.card-hover-premium:hover:hover:hover {
+.card-hover-premium:hover {
   @apply bg-card scale-[1.02];
   box-shadow: 0 8px 20px -1px rgba(14, 116, 144, 0.15), 0 2px 6px -1px rgba(14, 116, 144, 0.1);
 }
@@ -136,12 +136,12 @@
   transform: scale(1);
 }
 
-.btn-hover-premium:hover:hover:hover {
+.btn-hover-premium:hover {
   @apply bg-primary/90 scale-[1.02];
 }
 
 /* Input focus premium */
-.input-premium:focus:focusfocus {
+.input-premium:focus {
   border: 2px solid var(--primary);
   box-shadow: 0 0 0 4px rgba(14, 116, 144, 0.2);
 }

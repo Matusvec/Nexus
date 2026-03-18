@@ -1,4 +1,4 @@
-from app.schemas.embeddings import EmbedProblemsRequest, EmbedProblemsResponse
+from app.schemas.embeddings import EmbedProblemsRequest
 from app.schemas.evidence import (
     EvidenceCreate,
     EvidenceDetailResponse,
@@ -9,7 +9,6 @@ from app.schemas.evidence import (
 from app.schemas.jobs import JobResponse, JobStatusResponse
 from app.schemas.problems import (
     ExtractProblemsRequest,
-    ExtractProblemsResponse,
     ProblemMentionCreate,
     ProblemMentionListResponse,
     ProblemMentionResponse,
@@ -24,7 +23,6 @@ from app.schemas.priority_scores import PriorityScoreResponse, StrategicWeightUp
 
 __all__ = [
     "EmbedProblemsRequest",
-    "EmbedProblemsResponse",
     "EvidenceCreate",
     "EvidenceDetailResponse",
     "EvidenceListResponse",
@@ -33,7 +31,6 @@ __all__ = [
     "JobResponse",
     "JobStatusResponse",
     "ExtractProblemsRequest",
-    "ExtractProblemsResponse",
     "ProblemMentionCreate",
     "ProblemMentionListResponse",
     "ProblemMentionResponse",
